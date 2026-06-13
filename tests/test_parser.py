@@ -100,6 +100,75 @@ def test_parentheses():
     assert node.pos_start.column == 0
     assert node.pos_end.line == 0
     assert node.pos_end.column == 10
+
+def test_logical_keys():
+    lexer = Lexer("not True or False and not False", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    
+    assert isinstance(node, BinaryOpNode)
+    assert node.op.value == "and"
+    assert isinstance(node.node1, BinaryOpNode)
+    assert node.node1.op.value == "or"
+    assert isinstance(node.node1.node1, UnaryOpNode)
+    assert node.node1.node1.op.value == "not"
+    assert isinstance(node.node1.node1.node, VarGetNode)
+    assert node.node1.node1.node.name.value == "True"
+    assert isinstance(node.node1.node2, VarGetNode)
+    assert node.node1.node2.name.value == "False"
+    assert isinstance(node.node2, UnaryOpNode)
+    assert node.node2.op.value == "not"
+    assert isinstance(node.node2.node, VarGetNode)
+    assert node.node2.node.name.value == "False"
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 30
+
+def test_comparison_ops():
+    lexer = Lexer("3 > 2 != 2 <= 3 == 4 < 6 >= 8", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    
+    assert isinstance(node, BinaryOpNode)
+    assert node.op.type == "GTE"
+    assert isinstance(node.node1, BinaryOpNode)
+    assert node.node1.op.type == "LT"
+    assert isinstance(node.node1.node1, BinaryOpNode)
+    assert node.node1.node1.op.type == "EQEQ"
+    assert isinstance(node.node1.node1.node1, BinaryOpNode)
+    assert node.node1.node1.node1.op.type == "LTE"
+    assert isinstance(node.node1.node1.node1.node1, BinaryOpNode)
+    assert node.node1.node1.node1.node1.op.type == "NEQ"
+    assert isinstance(node.node1.node1.node1.node1.node1, BinaryOpNode)
+    assert node.node1.node1.node1.node1.node1.op.type == "GT"
+    assert isinstance(node.node1.node1.node1.node1.node1.node1, NumberNode)
+    assert node.node1.node1.node1.node1.node1.node1.tok.value == 3
+    assert isinstance(node.node1.node1.node1.node1.node1.node2, NumberNode)
+    assert node.node1.node1.node1.node1.node1.node2.tok.value == 2
+    assert isinstance(node.node1.node1.node1.node1.node2, NumberNode)
+    assert node.node1.node1.node1.node1.node2.tok.value == 2
+    assert isinstance(node.node1.node1.node1.node2, NumberNode)
+    assert node.node1.node1.node1.node2.tok.value == 3
+    assert isinstance(node.node1.node1.node2, NumberNode)
+    assert node.node1.node1.node2.tok.value == 4
+    assert isinstance(node.node1.node2, NumberNode)
+    assert node.node1.node2.tok.value == 6
+    assert isinstance(node.node2, NumberNode)
+    assert node.node2.tok.value == 8
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 28
+
     
 def test_multiline():
     lexer = Lexer("4\n5", "<test>")
@@ -333,3 +402,19 @@ def test_error_202_inst_2():
     assert error.pos_end.column == 9
     assert error.details == 'Unexpected token: "RBRACE"'
 
+def test_error_204_inst_5():
+    lexer = Lexer("()", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 1
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 1
+    assert error.details == 'Expected expression'

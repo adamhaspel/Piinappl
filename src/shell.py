@@ -1,11 +1,24 @@
 from main import *
 from stringcolor import *
 import sys
+import pytest
 
 GlobalSymbolTable = SymbolTable()
 
-print(cs(f"Piinappl x.x.x (stable @xxx xx, xxxx) on {sys.platform}", "rgb(200, 250, 220)"))
-print(cs(f"Copyright (c) {2026} Adam Haspel. All rights reserved.", "rgb(200, 250, 220)"))
+green = "rgb(190, 230, 130)"
+red = "rgb(255, 100, 100)"
+
+print(cs(f"Piinappl x.x.x (stable @xxx xx, xxxx) on {sys.platform}", green))
+print(cs(f"Copyright (c) {2026} Adam Haspel. All rights reserved.", green))
+if not "--test" in sys.argv:
+    if "-t" in sys.argv:
+        print(cs("Running tests...", green))
+        arg = "-q"
+    else:
+        arg = "-p no:terminal"
+    if pytest.main([arg, "tests"]) > 0:
+        print(cs("[INTERNAL] Error 401: Tests failed. Shell will not start.", "rgb(255, 100, 100)"))
+        sys.exit(1)
 
 while True:
     try:

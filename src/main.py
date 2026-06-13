@@ -19,6 +19,12 @@ TT_LPAREN = "LPAREN"
 TT_RPAREN = "RPAREN"
 TT_LBRACE = "LBRACE"
 TT_RBRACE = "RBRACE"
+TT_GT = "GT"
+TT_LT = "LT"
+TT_GTE = "GTE"
+TT_LTE = "LTE"
+TT_EQEQ = "EQEQ"
+TT_NEQ = "NEQ"
 TT_COLON = "COLON"
 TT_NUM = "NUM"
 TT_STR = "STR"
@@ -34,7 +40,7 @@ TT_KEY = "KEY"
 TT_IDENT = "IDENT"
 
 # Keywords
-KEYS = ["var", "const"]
+KEYS = ["var", "const", "and", "or", "nor", "xor", "nand", "xnor", "not"]
 
 # Characters
 DIGITS = "0123456789"
@@ -165,6 +171,7 @@ class VarDefNode():
         self.eqtype = eqtype
         self.op = eqtype
         self.value = value
+        self.node2 = value
         self.pos_start = Position(index, self.key.line, self.key.pos_start)
         self.pos_end = pos_end
         self.pos_end.column -= 1
@@ -189,6 +196,7 @@ class Value():
     def __init__(self, value, lexer):
         self.value = value
         self.lexer = lexer
+        self.bool = bool(self.value)
         
     def add(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -201,16 +209,124 @@ class Value():
     
     def div(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def eq(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value == other.value, self.lexer), None
+        else:
+            return Boolean(0, self.lexer), None
+    
+    def neq(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value != other.value, self.lexer), None
+        else:
+            return Boolean(1, self.lexer), None
+        
+    def lt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value < other.value, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def gt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value > other.value, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def gte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value >= other.value, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def lte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.value <= other.value, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
     
     def exp(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
     
     def mod(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+    
+    def _or(self, node, other):
+        if (not self.bool and not other.bool):
+            return Boolean(0, self.lexer), None
+        return Boolean(1, self.lexer), None
+
+    def _and(self, node, other):
+        if (self.bool and other.bool):
+            return Boolean(1, self.lexer), None
+        return Boolean(0, self.lexer), None
+    
+    def _xor(self, node, other):
+        if (self.bool != other.bool):
+            return Boolean(1, self.lexer), None
+        return Boolean(0, self.lexer), None
+
+    def _nand(self, node, other):
+        if (self.bool and other.bool):
+            return Boolean(0, self.lexer), None
+        return Boolean(1, self.lexer), None
+    
+    def _nor(self, node, other):
+        if (self.bool or other.bool):
+            return Boolean(0, self.lexer), None
+        return Boolean(1, self.lexer), None
+    
+    def _xnor(self, node, other):
+        if (self.bool == other.bool):
+            return Boolean(1, self.lexer), None
+        return Boolean(0, self.lexer), None
+    
+    def _not(self, node):
+        return Boolean(not(self.bool), self.lexer), None
+
+class NoneType(Value):
+    def __init__(self, lexer):
+        super().__init__(0, lexer)
+
+    def lt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def gt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def gte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def lte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def __repr__(self):
+        return "None"
+
+class Boolean(Value):
+    def __init__(self, value, lexer):
+        super().__init__(value, lexer)
+
+    def lt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def gt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def gte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def lte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def __repr__(self):
+        return "True" if self.value else "False"
 
 class String(Value):
     def __init__(self, value, lexer):
         super().__init__(value, lexer)
+        self.bool = True
         
     def add(self, node, other):
         if isinstance(other, Number) or isinstance(other, String):
@@ -223,18 +339,18 @@ class String(Value):
             try:
                 return String(self.value * other.value, self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
         
     def sub(self, node, other):
         if isinstance(other, Number):
             if other.value > len(self.value):
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, f'Invalid operation of String and number longer than length', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of String and number longer than length', self.lexer.text.split("\n")[node.pos_start.line])
             try:
                 return String(self.value[:-other.value], self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
     
@@ -246,6 +362,7 @@ class Number(Value):
         super().__init__(value, lexer)
         if self.value % 1 == 0:
             self.value = int(self.value)
+        self.bool = True
         
     def add(self, node, other):
         if isinstance(other, Number):
@@ -268,14 +385,14 @@ class Number(Value):
             try:
                 return String(str(other.value) * self.value, self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
         
     def div(self, node, other):
         if isinstance(other, Number):
             if other.value == 0:
-                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, 'Division by zero', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n")[node.pos_start.line])
             return Number(self.value / other.value, self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -289,7 +406,7 @@ class Number(Value):
     def mod(self, node, other):
         if isinstance(other, Number):
             if other.value == 0:
-                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start), node.pos_end, 'Division by zero', self.lexer.text.split("\n")[node.pos_start.line])
+                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n")[node.pos_start.line])
             return Number(self.value % other.value, self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -304,7 +421,7 @@ class Number(Value):
 class SymbolTable():
     def __init__(self, parent=None):
         self.symbols = {}
-        self.constants = {}
+        self.constants = {"None": NoneType(None), "True": Boolean(1, None), "False": Boolean(0, None)}
         self.parent = parent
         
     def get(self, name):
@@ -433,6 +550,36 @@ class Lexer():
                     line.append(Token(TT_RBRACE, None, linepos, pos))
                     pos += 1
                     j = i[pos]
+                elif j == ">":
+                    pos_start = pos
+                    pos += 1
+                    j = i[pos]
+                    if j == "=":
+                        line.append(Token(TT_GTE, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    else:
+                        line.append(Token(TT_GT, None, linepos, pos_start, pos_start))
+                elif j == "<":
+                    pos_start = pos
+                    pos += 1
+                    j = i[pos]
+                    if j == "=":
+                        line.append(Token(TT_LTE, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    else:
+                        line.append(Token(TT_LT, None, linepos, pos_start, pos_start))
+                elif j == "!":
+                    pos_start = pos
+                    pos += 1
+                    j = i[pos]
+                    if j == "=":
+                        line.append(Token(TT_NEQ, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    else:
+                        return None, Error(101, Position(self.index, linepos, pos_start), Position(self.index, linepos, pos_start), f'Illegal character "!"', self.text.split("\n")[linepos])
                 elif j == ":":
                     line.append(Token(TT_COLON, None, linepos, pos))
                     pos += 1
@@ -463,6 +610,22 @@ class Lexer():
                         j = i[pos]
                     elif j == "%":
                         line.append(Token(TT_MODEQ, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    elif j == "=":
+                        line.append(Token(TT_EQEQ, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    elif j == ">":
+                        line.append(Token(TT_GTE, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    elif j == "<":
+                        line.append(Token(TT_LTE, None, linepos, pos_start, pos))
+                        pos += 1
+                        j = i[pos]
+                    elif j == "!":
+                        line.append(Token(TT_NEQ, None, linepos, pos_start, pos))
                         pos += 1
                         j = i[pos]
                     else:
@@ -549,11 +712,13 @@ class Parser():
         if self.tokens is []:
             return None
         self.current_tok = self.tokens[0]
-        if self.current_tok.type == "KEY":
+        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const"]:
             if self.current_tok.value in ["var", "const"]:
                 node, error = self.var(self.current_tok)
+            else:
+                pass
         else:
-            node, error = self.plusminus()
+            node, error = self.andor()
         if error:
             return None, error
         if self.current_tok.type != "EOF":
@@ -577,7 +742,7 @@ class Parser():
             return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), f'Expected token: "="', self.lexer.text.split("\n")[self.current_tok.line])
         eqtype = self.current_tok
         self.advance()
-        node, error = self.plusminus()
+        node, error = self.andor()
         if error:
             return None, error
         if self.current_tok.type != "RBRACE":
@@ -606,7 +771,10 @@ class Parser():
             # Parentheses
             lparen = self.current_tok
             self.advance()
-            node, error = self.plusminus()
+            if self.current_tok.type == "RPAREN":
+                # Empty Group
+                return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), 'Expected expression', self.lexer.text.split("\n")[lparen.line])
+            node, error = self.andor()
             if error:
                 return None, error
             if self.current_tok.type != "RPAREN":
@@ -616,7 +784,7 @@ class Parser():
             node.pos_end = Position(self.index, self.current_tok.line, self.current_tok.pos_end)
             self.advance() 
             return node, None
-        elif self.current_tok.type in ["PLUS", "MINUS"]:
+        elif (self.current_tok.type in ["PLUS", "MINUS"]) or (self.current_tok.type == "KEY" and self.current_tok.value == "not"):
             # Unary Operations
             op = self.current_tok
             self.advance()
@@ -640,7 +808,31 @@ class Parser():
             return None, error
         
         return self.binaryoperation(node1, ["MUL", "DIV", "MOD"], self.exp)
+
+    def gtlt(self):
+        node1, error = self.plusminus()
+        if error:
+            return None, error
         
+        return self.binaryoperation(node1, ["GT", "LT", "GTE", "LTE", "EQEQ", "NEQ"], self.plusminus)
+    
+    def andor(self):
+        node1, error = self.gtlt()
+        if error:
+            return None, error
+        
+        while self.current_tok.type == "KEY" and self.current_tok.value in ["and", "or", "xor", "nand", "nor", "xnor"]:
+            op = self.current_tok
+        
+            self.advance()
+            
+            node2, error = self.gtlt()
+            if error:
+                return None, error
+            
+            node1 = BinaryOpNode(node1, op, node2)
+        return node1, None
+
     def plusminus(self):
         node1, error = self.muldiv()
         if error:
@@ -729,54 +921,49 @@ class Interpreter():
         return value, None
     
     def visit_BinaryOpNode(self, node):
+        node1, error = self.visit(node.node1)
+        if error:
+            return None, error
+        node2, error = self.visit(node.node2)
+        if error:
+            return None, error
         if node.op.type == "PLUS":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
             return node1.add(node, node2)
-        if node.op.type == "MINUS":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
+        elif node.op.type == "MINUS":
             return node1.sub(node, node2)
-        if node.op.type == "MUL":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
+        elif node.op.type == "MUL":
             return node1.mul(node, node2)
-        if node.op.type == "DIV":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
+        elif node.op.type == "DIV":
             return node1.div(node, node2)
-        if node.op.type == "EXP":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
+        elif node.op.type == "EXP":
             return node1.exp(node, node2)
-        if node.op.type == "MOD":
-            node1, error = self.visit(node.node1)
-            if error:
-                return None, error
-            node2, error = self.visit(node.node2)
-            if error:
-                return None, error
+        elif node.op.type == "MOD":
             return node1.mod(node, node2)
+        elif node.op.type == "EQEQ":
+            return node1.eq(node, node2)
+        elif node.op.type == "NEQ":
+            return node1.neq(node, node2)
+        elif node.op.type == "GT":
+            return node1.gt(node, node2)
+        elif node.op.type == "LT":
+            return node1.lt(node, node2)
+        elif node.op.type == "GTE":
+            return node1.gte(node, node2)
+        elif node.op.type == "LTE":
+            return node1.lte(node, node2)
+        elif node.op.type == "KEY":
+            if node.op.value == "and":
+                return node1._and(node, node2)
+            elif node.op.value == "or":
+                return node1._or(node, node2)
+            elif node.op.value == "xor":
+                return node1._xor(node, node2)
+            elif node.op.value == "nand":
+                return node1._nand(node, node2)
+            elif node.op.value == "nor":
+                return node1._nor(node, node2)
+            elif node.op.value == "xnor":
+                return node1._xnor(node, node2)
 
     def visit_UnaryOpNode(self, node):
         if node.op.type == "PLUS":
@@ -786,3 +973,8 @@ class Interpreter():
             if error:
                 return None, error
             return node1.mul(node, Number(-1, self.lexer))
+        if node.op.type == "KEY" and node.op.value == "not":
+            node1, error = self.visit(node.node)
+            if error:
+                return None, error
+            return node1._not(node)

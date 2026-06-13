@@ -64,7 +64,32 @@ def test_lexer_produces_tokens_set_2():
         ("RBRACE", None, 1, 31, 31),
         ("EOF", None, 1, 32, 32)
     ]
-    
+
+def test_lexer_produces_tokens_set_3():
+    lexer = Lexer("x > y < z >= w <= v != u =< => =! ==", "<test>")
+    tokens, error = lexer.lex()
+
+    assert error is None
+
+    assert [(t.type, t.value, t.line, t.pos_start, t.pos_end) for t in tokens[0]] == [
+        ("IDENT", "x", 0, 0, 0),
+        ("GT", None, 0, 2, 2),
+        ("IDENT", "y", 0, 4, 4),
+        ("LT", None, 0, 6, 6),
+        ("IDENT", "z", 0, 8, 8),
+        ("GTE", None, 0, 10, 11),
+        ("IDENT", "w", 0, 13, 13),
+        ("LTE", None, 0, 15, 16),
+        ("IDENT", "v", 0, 18, 18),
+        ("NEQ", None, 0, 20, 21),
+        ("IDENT", "u", 0, 23, 23),
+        ("LTE", None, 0, 25, 26),
+        ("GTE", None, 0, 28, 29),
+        ("NEQ", None, 0, 31, 32),
+        ("EQEQ", None, 0, 34, 35),
+        ("EOF", None, 0, 36, 36)
+    ]
+
 def test_complex_numbers():
     lexer = Lexer("3.14 + 271", "<test>")
     tokens, error = lexer.lex()
@@ -92,7 +117,7 @@ def test_strings():
         ("EOF", None, 0, 26, 26)
     ]
     
-def test_error_101():
+def test_error_101_inst_1():
     lexer = Lexer("4\n3 $", "<test>")
     tokens, error = lexer.lex()
     print(error)
@@ -105,6 +130,20 @@ def test_error_101():
     assert error.pos_end.line == 1
     assert error.pos_end.column == 2
     assert error.details == 'Illegal character "$"'
+
+def test_error_101_inst_2():
+    lexer = Lexer("!", "<test>")
+    tokens, error = lexer.lex()
+    print(error)
+
+    assert tokens is None
+    
+    assert error.error_code == 101
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 0
+    assert error.details == 'Illegal character "!"'
     
 def test_error_102_inst_1():
     lexer = Lexer("3.14.15", "<test>")

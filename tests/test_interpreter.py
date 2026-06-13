@@ -36,6 +36,36 @@ def test_interpreter_unary():
     assert error is None
     assert isinstance(result, Number)
     assert result.value == -2
+
+def test_comparison_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("3 > 2 and 4 <= 5 or 6 == 7", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Boolean)
+    assert result.value == True
+
+def test_comparison_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("(3 < 2 nand 4 =< 5 nor (6 xnor 6) != 7) xor (not 6)", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Boolean)
+    assert result.value == False
     
 def test_error_301_inst_1():
     GlobalSymbolTable = SymbolTable()
@@ -135,6 +165,97 @@ def test_error_301_inst_4():
     assert error.pos_start.column == 0
     assert error.pos_end.line == 0
     assert error.pos_end.column == 10
+
+def test_error_301_inst_5():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("True + 1", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between Boolean and Number"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 7
+
+def test_error_301_inst_6():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("None * 'a'", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between NoneType and String"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+
+def test_error_301_inst_7():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("True < 'a'", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between Boolean and String"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+
+def test_error_301_inst_8():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("var: {x = True}\nvar: {x -= 1}", "<test>")
+    tokens, error = lexer.lex()
+    
+    # First token defines the variable
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+
+    # Second token attempts an incompatible +=
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between Boolean and Number"
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 11
 
 def test_error_302_inst_1():
     GlobalSymbolTable = SymbolTable()
