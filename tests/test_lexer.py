@@ -93,7 +93,6 @@ def test_lexer_produces_tokens_set_3():
 def test_complex_numbers():
     lexer = Lexer("3.14 + 271", "<test>")
     tokens, error = lexer.lex()
-    print(tokens)
 
     assert error is None
     
@@ -107,7 +106,6 @@ def test_complex_numbers():
 def test_strings():
     lexer = Lexer('"Hello, World!" \'I am joe\'', "<test>")
     tokens, error = lexer.lex()
-    print(tokens)
 
     assert error is None
     
@@ -120,7 +118,6 @@ def test_strings():
 def test_error_101_inst_1():
     lexer = Lexer("4\n3 $", "<test>")
     tokens, error = lexer.lex()
-    print(error)
 
     assert tokens is None
     
@@ -134,7 +131,6 @@ def test_error_101_inst_1():
 def test_error_101_inst_2():
     lexer = Lexer("!", "<test>")
     tokens, error = lexer.lex()
-    print(error)
 
     assert tokens is None
     
@@ -144,11 +140,23 @@ def test_error_101_inst_2():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 0
     assert error.details == 'Illegal character "!"'
+
+def test_if():
+    lexer = Lexer('if else elif', "<test>")
+    tokens, error = lexer.lex()
+
+    assert error is None
+    
+    assert [(t.type, t.value, t.line, t.pos_start, t.pos_end) for t in tokens[0]] == [
+        ("KEY", "if", 0, 0, 1),
+        ("KEY", "else", 0, 3, 6),
+        ("KEY", "elif", 0, 8, 11),
+        ('EOF', None, 0, 12, 12)
+    ]
     
 def test_error_102_inst_1():
     lexer = Lexer("3.14.15", "<test>")
     tokens, error = lexer.lex()
-    print(error)
 
     assert tokens is None
     
@@ -163,7 +171,6 @@ def test_error_102_inst_1():
 def test_error_102_inst_2():
     lexer = Lexer("3.", "<test>")
     tokens, error = lexer.lex()
-    print(error)
 
     assert tokens is None
     
@@ -178,7 +185,6 @@ def test_error_102_inst_2():
 def test_error_103():
     lexer = Lexer('"Hello', "<test>")
     tokens, error = lexer.lex()
-    print(error)
 
     assert tokens is None
     

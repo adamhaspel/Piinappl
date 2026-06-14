@@ -40,7 +40,7 @@ TT_KEY = "KEY"
 TT_IDENT = "IDENT"
 
 # Keywords
-KEYS = ["var", "const", "and", "or", "nor", "xor", "nand", "xnor", "not"]
+KEYS = ["var", "const", "and", "or", "nor", "xor", "nand", "xnor", "not", "if", "elif", "else"]
 
 # Characters
 DIGITS = "0123456789"
@@ -153,7 +153,18 @@ class BinaryOpNode():
         
     def __repr__(self):
         return f"({self.node1} {self.op} {self.node2})"
-    
+
+class IfNode():
+    def __init__(self, cond, then, pos_end, elifs=None, _else=None):
+        self.cond = cond
+        self.then = then
+        self.elifs = elifs
+        self._else = _else
+        self.pos_end = Position(None, pos_end, pos_end)
+
+    def __repr__(self):
+        return f'if {self.cond} then {self.then} elif {self.elifs} else {self._else}'
+
 class UnaryOpNode():
     def __init__(self, op, node, index):
         self.op = op
@@ -709,20 +720,33 @@ class Parser():
         return None
         
     def parse(self):
-        if self.tokens is []:
-            return None
         self.current_tok = self.tokens[0]
-        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const"]:
-            if self.current_tok.value in ["var", "const"]:
-                node, error = self.var(self.current_tok)
-            else:
-                pass
-        else:
-            node, error = self.andor()
+        node, error = self.expr()
         if error:
             return None, error
         if self.current_tok.type != "EOF":
             return None, Error(203, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), f'Conjoined expression', self.lexer.text.split("\n")[self.current_tok.line])
+        return node, None
+    
+    def expr(self):
+        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const", 'if']:
+            if self.current_tok.value in ["var", "const"]:
+                node, error = self.var(self.current_tok)
+            elif self.current_tok.value in ["if"]:
+                node, error = self.ifexpr(self.current_tok.line)
+        else:
+            node, error = self.andor()
+        if error:
+            return None, error
+        return node, None
+    
+    def parse_mini(self):
+        self.current_tok = self.tokens[0]
+        if self.current_tok.type == "RBRACE":
+            return None, None
+        node, error = self.expr()
+        if error:
+            return None, error
         return node, None
     
     def var(self, key):
@@ -751,6 +775,127 @@ class Parser():
         self.advance()
         return VarDefNode(key, name, eqtype, node, pos_end, self.index), None
         
+    def ifexpr(self, line):
+        elifs = None
+        _else = None
+        tokens, error = Lexer(self.lexer.text, self.index).lex()
+        if error:
+            return None, error
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), f'Expected token: ":"', self.lexer.text.split("\n")[self.current_tok.line])
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), 'Expected token: "{"', self.lexer.text.split("\n")[self.current_tok.line])
+        pos_start = self.current_tok.pos_start
+        self.advance()
+        cond, error = self.andor()
+        if error:
+            return None, error
+        if self.current_tok.type != "RBRACE":
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start), Position(self.index, self.current_tok.line, pos_start), 'Unresolved grouping: "{"', self.lexer.text.split("\n")[self.current_tok.line])
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), 'Expected token: "{"', self.lexer.text.split("\n")[self.current_tok.line])
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        if self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line
+        lineifnoelses = line
+        tokifnoelses = self.current_tok
+        try:
+            line += 1
+            while self.current_tok.type == "EOF":
+                self.tokens = tokens[line]
+                self.current_tok = self.tokens[0]
+                line += 1
+        except IndexError:
+            line = lineifnoelses
+        else:
+            if finished == False:
+                return None, Error(201, Position(self.index, self.current_tok.line, pos_start), Position(self.index, self.current_tok.line, pos_start), 'Unresolved grouping: "{"', self.lexer.text.split("\n")[self.current_tok.line])
+            if self.current_tok.type == "KEY" and self.current_tok.value == "elif":
+                elifs, error = self.ifexpr(line)
+                if error:
+                    return None, error
+                line = elifs.pos_end.line
+            elif self.current_tok.type == "KEY" and self.current_tok.value == "else":
+                _else, error, line = self.elseexpr(tokens, line)
+                if error:
+                    return None, error
+            else:
+                line = lineifnoelses
+                self.tokens = tokens[line]
+                self.current_tok = tokifnoelses
+        return IfNode(cond, then, line, elifs, _else), None
+    
+    def elseexpr(self, tokens, line):
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), f'Expected token: ":"', self.lexer.text.split("\n")[self.current_tok.line]), None
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), 'Expected token: "{"', self.lexer.text.split("\n")[self.current_tok.line]), None
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        if self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error, line
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line, None
+        return then, None, line
+
+    def multiline(self, tokens, line, then, linepos, pos_start, finished):
+        line += 1
+        while self.current_tok.type == "EOF" and finished == False:
+            try:
+                self.tokens = tokens[line]
+                if len(self.tokens) == 1:
+                    line += 1
+                    continue
+            except IndexError:
+                return None, Error(201, Position(self.index, linepos, pos_start), Position(self.index, linepos, pos_start), 'Unresolved grouping: "{"', self.lexer.text.split("\n")[linepos]), None, None
+            node, error = self.parse_mini()
+            if error:
+                return None, error, None, None
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+                break
+            if node:
+                line = node.pos_end.line + 1
+            else:
+                line += 1
+        return tokens, line, then, finished
+
     def num(self):
         if self.current_tok.type == "NUM":
             # Numbers
@@ -919,6 +1064,29 @@ class Interpreter():
             return None, Error(304, node.pos_start, node.pos_end, f'Variable "{node.name.value}" not defined', self.lexer.text.split("\n")[node.pos_start.line])
         value.lexer = self.lexer
         return value, None
+    
+    def visit_IfNode(self, node):
+        cond, error = self.visit(node.cond)
+        if error:
+            return None, error
+        
+        if cond.bool:
+            for i in node.then:
+                if not i:
+                    continue
+                res, error = self.visit(i)
+        else:
+            if node.elifs:
+                res, error = self.visit(node.elifs)
+                if error: return None, error
+            elif node._else:
+                for i in node._else:
+                    if not i:
+                        continue
+                    res, error = self.visit(i)
+            else:
+                return None, None
+        return res, error
     
     def visit_BinaryOpNode(self, node):
         node1, error = self.visit(node.node1)

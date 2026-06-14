@@ -539,3 +539,117 @@ def test_error_305_inst_2():
     assert error.pos_start.column == 8
     assert error.pos_end.line == 1
     assert error.pos_end.column == 8
+
+def test_if_execution():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('if: { True} { var: {x = 5}}\nx', "<test>")
+    tokens, error = lexer.lex()
+
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 5
+
+
+def test_if_execution_else_and_elif_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''if: {1 == 2} {var: {x = 5}}
+elif: {2 == 2} { var: {x = 6}}
+else: {var: {x = 7}}
+x''', "<test>")
+    tokens, error = lexer.lex()
+
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 6
+
+def test_if_execution_else_and_elif_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''if: {1 == 2} {var: {x = 5}}
+elif: {2 != 2} { var: {x = 6}}
+else: {var: {x = 7}}
+x''', "<test>")
+    tokens, error = lexer.lex()
+
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 7
+
+def test_if_execution_else_and_elif_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''if: {2 == 2} {var: {x = 5}}
+elif: {2 == 2} { var: {x = 6}}
+else: {var: {x = 7}}
+x''', "<test>")
+    tokens, error = lexer.lex()
+
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 5
+
+def test_if_execution_else_and_elif_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''if: {2 == 2} {
+    var: {x = 5}
+} elif: {2 == 2} { var: {x = 6}
+} 
+else: {var: {x = 7}}
+x''', "<test>")
+    tokens, error = lexer.lex()
+
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 5

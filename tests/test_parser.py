@@ -197,7 +197,7 @@ def test_multiline():
     assert node1.pos_end.line == 1
     assert node1.pos_end.column == 0
     
-def test_error_201():
+def test_error_201_inst_1():
     lexer = Lexer("(1 + 1", "<test>")
     tokens, error = lexer.lex()
     
@@ -418,3 +418,149 @@ def test_error_204_inst_5():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 1
     assert error.details == 'Expected expression'
+
+def test_if_simple():
+    lexer = Lexer('if: {1 == 1} {5}', "<test>")
+    tokens, error = lexer.lex()
+
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, IfNode)
+    assert isinstance(node.cond, BinaryOpNode)
+    assert node.cond.op.type == "EQEQ"
+    assert isinstance(node.then, list)
+    assert isinstance(node.then[0], NumberNode)
+    assert node.then[0].tok.value == 5
+
+def test_else_and_elif():
+    lexer = Lexer('if: {1 == 2} {5} elif: {2 == 2} {6} else: {7}', "<test>")
+    tokens, error = lexer.lex()
+
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, IfNode)
+    assert isinstance(node.cond, BinaryOpNode)
+    assert isinstance(node.elifs, IfNode)
+    assert isinstance(node.elifs.then, list)
+    assert isinstance(node.elifs.then[0], NumberNode)
+    assert node.elifs.then[0].tok.value == 6
+    assert isinstance(node.elifs._else, list)
+    assert isinstance(node.elifs._else[0], NumberNode)
+    assert node.elifs._else[0].tok.value == 7
+
+def test_error_201_var_inst_2():
+    lexer = Lexer("var: {x = 1 + 2 * (3 - 4)", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 5
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 5
+    assert error.details == "Unresolved grouping: \"{\""
+
+def test_error_201_inst_3():
+    lexer = Lexer('if: {1 == 1 {5}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 4
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 4
+    assert error.details == "Unresolved grouping: \"{\""
+
+def test_error_201_inst_4():
+    lexer = Lexer('if: {True } {1 + 2 * 3', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 12
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 12
+    assert error.details == "Unresolved grouping: \"{\""
+
+def test_error_201_inst_5():
+    lexer = Lexer('if: {False } {5 } elif: {x == 3 {6} else: {7}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 24
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 24
+    assert error.details == "Unresolved grouping: \"{\""
+    
+def test_error_201_inst_6():
+    lexer = Lexer('if: {False } {5} elif: {True} {var: {x = 10 * 2} else: {7}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 30
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 30
+    assert error.details == "Unresolved grouping: \"{\""
+
+def test_error_201_inst_7():
+    lexer = Lexer('if: {False } {5 } elif: {False } {6 } else: {1 + 3', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 44
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 44
+    assert error.details == "Unresolved grouping: \"{\""
+    
+
+def test_error_201_inst_8():
+    lexer = Lexer('if: {True} {5} else: {var: {y = (x - 4}}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 32
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 32
+    assert error.details == "Unresolved grouping: \"(\""

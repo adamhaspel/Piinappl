@@ -13,7 +13,7 @@ print(cs(f"Copyright (c) {2026} Adam Haspel. All rights reserved.", green))
 if not "--test" in sys.argv:
     if "-t" in sys.argv:
         print(cs("Running tests...", green))
-        arg = "-q"
+        arg = ""
     else:
         arg = "-p no:terminal"
     if pytest.main([arg, "tests"]) > 0:
