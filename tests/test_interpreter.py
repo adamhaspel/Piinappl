@@ -234,14 +234,12 @@ def test_error_301_inst_8():
     lexer = Lexer("var: {x = True}\nvar: {x -= 1}", "<test>")
     tokens, error = lexer.lex()
     
-    # First token defines the variable
     parser = Parser(tokens[0], "<shell>", lexer)
     node, error = parser.parse()
     interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
     result, error = interpreter.visit(node)
     assert error is None
 
-    # Second token attempts an incompatible +=
     parser = Parser(tokens[1], "<shell>", lexer)
     node, error = parser.parse()
     interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
@@ -256,6 +254,66 @@ def test_error_301_inst_8():
     assert error.pos_start.column == 0
     assert error.pos_end.line == 1
     assert error.pos_end.column == 11
+
+def test_error_301_inst_9():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("[3] - True", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between List and Boolean"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+
+def test_error_301_inst_10():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("[3] * True", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between List and Boolean"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+
+def test_error_301_inst_10():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("[3] in True", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 301
+    assert error.error_name == "IncompatibleOpError"
+    assert error.details == "Unsupported operation between List and Boolean"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 10
 
 def test_error_302_inst_1():
     GlobalSymbolTable = SymbolTable()
@@ -361,6 +419,48 @@ def test_error_303_inst_3():
     assert error.pos_start.column == 8
     assert error.pos_end.line == 0
     assert error.pos_end.column == 12
+
+def test_error_303_inst_6():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("['hello'] - .5", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 303
+    assert error.error_name == "NumberError"
+    assert error.details == "Invalid operation of List and non-integger"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 10
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 13
+
+def test_error_303_inst_6():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("['hello'] - 5.5", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 303
+    assert error.error_name == "NumberError"
+    assert error.details == "Invalid operation of List and number longer than length"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 10
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 14
 
 def test_error_303_inst_4():
     GlobalSymbolTable = SymbolTable()
@@ -555,6 +655,84 @@ def test_if_execution():
     assert isinstance(result, Number)
     assert result.value == 5
 
+def test_list():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[3, None, "hi", True, 4 - 4, [1, "bye"]]', "<test>")
+    tokens, error = lexer.lex()
+
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+    
+    assert isinstance(result, List)
+    assert [(t.__class__.__name__, t.value) for t in result.value[:-1]] == [
+        ("Number", 3),
+        ("NoneType", None),
+        ("String", "hi"),
+        ("Boolean", True),
+        ("Number", 0),
+    ]
+    assert [(t.__class__.__name__, t.value) for t in result.value[-1].value] == [
+        ("Number", 1),
+        ("String", "bye")
+    ]
+
+def test_list_ops():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[1, 2, 3, "a", "b", None] + ([4, 5, 6] * 2) - -2 - 2', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, List)
+    assert [(t.__class__.__name__, t.value) for t in result.value] == [
+        ("Number", 3),
+        ("String", "a"),
+        ("String", "b"),
+        ("NoneType", None),
+        ("Number", 4),
+        ("Number", 5),
+        ("Number", 6),
+        ("Number", 4),
+    ]
+
+def test_in_list():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('1 in ([1, 2, 3, "a", "b", None] + ([4, 5, 6] * 2) - -2 - 2)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Boolean)
+    assert result.value == 0
+
+def test_in_string_and_num():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('1 in "1" and 12 in 3123 and "hi" in "hibyewhy" and True in "TrueFalse"', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Boolean)
+    assert result.value == 1
 
 def test_if_execution_else_and_elif_1():
     GlobalSymbolTable = SymbolTable()

@@ -90,6 +90,30 @@ def test_lexer_produces_tokens_set_3():
         ("EOF", None, 0, 36, 36)
     ]
 
+def test_lexer_produces_tokens_set_4():
+    lexer = Lexer("and or not nor xor xnor nand [,] in if else elif", "<test>")
+    tokens, error = lexer.lex()
+
+    assert error is None
+
+    assert [(t.type, t.value, t.line, t.pos_start, t.pos_end) for t in tokens[0]] == [
+        ("KEY", "and", 0, 0, 2),
+        ("KEY", "or", 0, 4, 5),
+        ("KEY", "not", 0, 7, 9),
+        ("KEY", "nor", 0, 11, 13),
+        ("KEY", "xor", 0, 15, 17),
+        ("KEY", "xnor", 0, 19, 22),
+        ("KEY", "nand", 0, 24, 27),
+        ("LSQUARE", None, 0, 29, 29),
+        ("COMMA", None, 0, 30, 30),
+        ("RSQUARE", None, 0, 31, 31),
+        ("KEY", "in", 0, 33, 34),
+        ("KEY", "if", 0, 36, 37),
+        ("KEY", "else", 0, 39, 42),
+        ("KEY", "elif", 0, 44, 47),
+        ("EOF", None, 0, 48, 48),
+    ]
+
 def test_complex_numbers():
     lexer = Lexer("3.14 + 271", "<test>")
     tokens, error = lexer.lex()

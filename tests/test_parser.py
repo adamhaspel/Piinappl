@@ -130,14 +130,19 @@ def test_logical_keys():
     assert node.pos_end.column == 30
 
 def test_comparison_ops():
-    lexer = Lexer("3 > 2 != 2 <= 3 == 4 < 6 >= 8", "<test>")
+    lexer = Lexer("3 > 2 != 2 <= 3 == 4 < 6 >= 8 in 9", "<test>")
     tokens, error = lexer.lex()
     
     parser = Parser(tokens[0], "<test>", lexer)
     node, error = parser.parse()
     
     assert error is None
-    
+
+    assert isinstance(node, BinaryOpNode)
+    assert node.op.type == "KEY"
+    assert node.op.value == "in"
+    oldnode = node
+    node = node.node1
     assert isinstance(node, BinaryOpNode)
     assert node.op.type == "GTE"
     assert isinstance(node.node1, BinaryOpNode)
@@ -164,10 +169,13 @@ def test_comparison_ops():
     assert node.node1.node2.tok.value == 6
     assert isinstance(node.node2, NumberNode)
     assert node.node2.tok.value == 8
-    assert node.pos_start.line == 0
-    assert node.pos_start.column == 0
-    assert node.pos_end.line == 0
-    assert node.pos_end.column == 28
+    assert isinstance(oldnode.node2, NumberNode)
+    assert oldnode.node2.tok.value == 9
+    assert node.node2.tok.value == 8
+    assert oldnode.pos_start.line == 0
+    assert oldnode.pos_start.column == 0
+    assert oldnode.pos_end.line == 0
+    assert oldnode.pos_end.column == 33
 
     
 def test_multiline():
@@ -196,6 +204,36 @@ def test_multiline():
     assert node1.pos_start.column == 0
     assert node1.pos_end.line == 1
     assert node1.pos_end.column == 0
+
+def test_list():
+    lexer = Lexer("[4, 5, 6, 7]", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, ListNode)
+    assert str(node.contents) == "[NUM:4, NUM:5, NUM:6, NUM:7]"
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 11
+
+def test_empty_list():
+    lexer = Lexer("[]", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, ListNode)
+    assert str(node.contents) == "[]"
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 1
     
 def test_error_201_inst_1():
     lexer = Lexer("(1 + 1", "<test>")
@@ -419,6 +457,23 @@ def test_error_204_inst_5():
     assert error.pos_end.column == 1
     assert error.details == 'Expected expression'
 
+def test_error_204_inst_6():
+    lexer = Lexer("[1 2]", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 3
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 3
+    assert error.details == 'Expected token: ","'
+
 def test_if_simple():
     lexer = Lexer('if: {1 == 1} {5}', "<test>")
     tokens, error = lexer.lex()
@@ -564,3 +619,19 @@ def test_error_201_inst_8():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 32
     assert error.details == "Unresolved grouping: \"(\""
+
+def test_error_201_inst_9():
+    lexer = Lexer('[1, 2', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 0
+    assert error.details == "Unresolved grouping: \"[\""

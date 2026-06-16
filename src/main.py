@@ -19,6 +19,9 @@ TT_LPAREN = "LPAREN"
 TT_RPAREN = "RPAREN"
 TT_LBRACE = "LBRACE"
 TT_RBRACE = "RBRACE"
+TT_LSQUARE = "LSQUARE"
+TT_RSQUARE = "RSQUARE"
+TT_COMMA = "COMMA"
 TT_GT = "GT"
 TT_LT = "LT"
 TT_GTE = "GTE"
@@ -40,7 +43,7 @@ TT_KEY = "KEY"
 TT_IDENT = "IDENT"
 
 # Keywords
-KEYS = ["var", "const", "and", "or", "nor", "xor", "nand", "xnor", "not", "if", "elif", "else"]
+KEYS = ["var", "const", "and", "or", "nor", "xor", "nand", "xnor", "not", "if", "elif", "else", "in"]
 
 # Characters
 DIGITS = "0123456789"
@@ -153,6 +156,14 @@ class BinaryOpNode():
         
     def __repr__(self):
         return f"({self.node1} {self.op} {self.node2})"
+    
+class ListNode():
+    def __init__(self, l, contents, r, index):
+        self.l = l
+        self.r = r
+        self.contents = contents
+        self.pos_start = Position(index, l.line, l.pos_start)
+        self.pos_end = Position(index, r.line, r.pos_end)
 
 class IfNode():
     def __init__(self, cond, then, pos_end, elifs=None, _else=None):
@@ -256,6 +267,22 @@ class Value():
             return Boolean(self.value <= other.value, self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def _in(self, node, other):
+        if isinstance(other, List):
+            for i in other.value:
+                res, error = self.eq(node, i)
+                if error:
+                    return None, error
+                if res.bool:
+                    return Boolean(1, self.lexer), None
+            return Boolean(0, self.lexer), None
+        if isinstance(other, String):
+            if str(self.value) in other.value:
+                return Boolean(1, self.lexer), None
+            return Boolean(0, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
     
     def exp(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -299,6 +326,7 @@ class Value():
 class NoneType(Value):
     def __init__(self, lexer):
         super().__init__(0, lexer)
+        self.value = None
 
     def lt(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -318,6 +346,7 @@ class NoneType(Value):
 class Boolean(Value):
     def __init__(self, value, lexer):
         super().__init__(value, lexer)
+        self.value = self.bool
 
     def lt(self, node, other):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
@@ -333,6 +362,84 @@ class Boolean(Value):
 
     def __repr__(self):
         return "True" if self.value else "False"
+    
+class List(Value):
+    def __init__(self, value, lexer):
+        super().__init__(value, lexer)
+        self.bool = True
+
+    def eq(self, node, other):
+        if other.__class__.__name__ == "List":
+            if len(self.value) == len(self.value):
+                for i in range(len(self.value)):
+                    eq, error = self.value[i].eq(node, other.value[i])
+                    if not(eq.bool):
+                        return Boolean(0, self.lexer), None
+                return Boolean(1, self.lexer), None
+        return Boolean(0, self.lexer), None
+
+    def lt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(len(self.value) < len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def gt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(len(self.value) > len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def gte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(len(self.value) >= len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+
+    def lte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(len(self.value) <= len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+    
+    def neq(self, node, other):
+        eq, error = self.eq(node, other)
+        if error:
+            return None, error
+        return Boolean(int(not(eq.value)), self.lexer), None
+
+    def add(self, node, other):
+        if isinstance(other, List):
+            return List(self.value + other.value, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def mul(self, node, other):
+        if isinstance(other, Number):
+            try:
+                return List(self.value * other.value, self.lexer), None
+            except:
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+        
+    def sub(self, node, other):
+        if isinstance(other, Number):
+            if other.value > len(self.value):
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of List and number longer than length', self.lexer.text.split("\n")[node.pos_start.line])
+            try:
+                if other.value > 0:
+                    return List(self.value[:-other.value], self.lexer), None
+                if other.value == 0:
+                    return self, None
+                return List(self.value[-other.value:], self.lexer), None
+            except:
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n")[node.pos_start.line])
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
+    
+    def __repr__(self):
+        return f"{self.value}"
 
 class String(Value):
     def __init__(self, value, lexer):
@@ -374,6 +481,22 @@ class Number(Value):
         if self.value % 1 == 0:
             self.value = int(self.value)
         self.bool = True
+
+    def _in(self, node, other):
+        if isinstance(other, List):
+            for i in other.value:
+                res, error = self.eq(node, i)
+                if error:
+                    return None, error
+                if res.bool:
+                    return Boolean(1, self.lexer), None
+            return Boolean(0, self.lexer), None
+        if isinstance(other, String) or isinstance(other, Number):
+            if str(self.value) in str(other.value):
+                return Boolean(1, self.lexer), None
+            return Boolean(0, self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n")[node.pos_start.line])
         
     def add(self, node, other):
         if isinstance(other, Number):
@@ -593,6 +716,18 @@ class Lexer():
                         return None, Error(101, Position(self.index, linepos, pos_start), Position(self.index, linepos, pos_start), f'Illegal character "!"', self.text.split("\n")[linepos])
                 elif j == ":":
                     line.append(Token(TT_COLON, None, linepos, pos))
+                    pos += 1
+                    j = i[pos]
+                elif j == "]":
+                    line.append(Token(TT_RSQUARE, None, linepos, pos))
+                    pos += 1
+                    j = i[pos]
+                elif j == "[":
+                    line.append(Token(TT_LSQUARE, None, linepos, pos))
+                    pos += 1
+                    j = i[pos]
+                elif j == ",":
+                    line.append(Token(TT_COMMA, None, linepos, pos))
                     pos += 1
                     j = i[pos]
                 elif j == "=":
@@ -912,6 +1047,30 @@ class Parser():
             string = self.current_tok
             self.advance()
             return StringNode(string, self.index), None
+        elif self.current_tok.type == "LSQUARE":
+            # Lists
+            lsquare = self.current_tok
+            self.advance()
+            contents = []
+            if self.current_tok.type == "RSQUARE":
+                rsquare = self.current_tok
+                self.advance()
+            else:
+                while self.current_tok.type != "RSQUARE":
+                    node, error = self.andor()
+                    if error:
+                        return None, error
+                    if self.current_tok.type != "COMMA" and self.current_tok.type != "RSQUARE":
+                        if self.current_tok.type == "EOF":
+                            return None, Error(201, Position(self.index, lsquare.line, lsquare.pos_start), Position(self.index, lsquare.line, lsquare.pos_end), 'Unresolved grouping: "["', self.lexer.text.split("\n")[lsquare.line])
+                        return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start), Position(self.index, self.current_tok.line, self.current_tok.pos_end), 'Expected token: ","', self.lexer.text.split("\n")[self.current_tok.line])
+                    contents.append(node)
+                    if self.current_tok.type == "RSQUARE":
+                        rsquare = self.current_tok
+                        self.advance()
+                        break
+                    self.advance()
+            return ListNode(lsquare, contents, rsquare, self.index), None
         elif self.current_tok.type == "LPAREN":
             # Parentheses
             lparen = self.current_tok
@@ -958,8 +1117,17 @@ class Parser():
         node1, error = self.plusminus()
         if error:
             return None, error
-        
-        return self.binaryoperation(node1, ["GT", "LT", "GTE", "LTE", "EQEQ", "NEQ"], self.plusminus)
+        while (self.current_tok.type == "KEY" and self.current_tok.value == 'in') or self.current_tok.type in ["GT", "LT", "GTE", "LTE", "EQEQ", "NEQ"]:
+            op = self.current_tok
+    
+            self.advance()
+            
+            node2, error = self.plusminus()
+            if error:
+                return None, error
+            
+            node1 = BinaryOpNode(node1, op, node2)
+        return node1, None
     
     def andor(self):
         node1, error = self.gtlt()
@@ -1017,6 +1185,15 @@ class Interpreter():
     
     def visit_NumberNode(self, node):
         return Number(node.tok.value, self.lexer), None
+
+    def visit_ListNode(self, node):
+        contents = []
+        for i in node.contents:
+            res, error = self.visit(i)
+            if error:
+                return None, error
+            contents.append(res)
+        return List(contents, self.lexer), None
     
     def visit_StringNode(self, node):
         return String(node.tok.value, self.lexer), None
@@ -1050,6 +1227,7 @@ class Interpreter():
                 if error:
                     return None, error
                 self.symboltable.set(node.name.value, new_value)
+                value = new_value
         else:
             existing = self.symboltable.get(node.name)
             if existing != None or node.eqtype.type != "EQ":
@@ -1132,6 +1310,8 @@ class Interpreter():
                 return node1._nor(node, node2)
             elif node.op.value == "xnor":
                 return node1._xnor(node, node2)
+            elif node.op.value == "in":
+                return node1._in(node, node2)
 
     def visit_UnaryOpNode(self, node):
         if node.op.type == "PLUS":
