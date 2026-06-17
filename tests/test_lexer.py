@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-# Ensure src is on sys.path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -91,7 +90,7 @@ def test_lexer_produces_tokens_set_3():
     ]
 
 def test_lexer_produces_tokens_set_4():
-    lexer = Lexer("and or not nor xor xnor nand [,] in if else elif", "<test>")
+    lexer = Lexer("and or not nor xor xnor nand [,] in if else elif func cfunc return unpack", "<test>")
     tokens, error = lexer.lex()
 
     assert error is None
@@ -111,7 +110,11 @@ def test_lexer_produces_tokens_set_4():
         ("KEY", "if", 0, 36, 37),
         ("KEY", "else", 0, 39, 42),
         ("KEY", "elif", 0, 44, 47),
-        ("EOF", None, 0, 48, 48),
+        ("KEY", "func", 0, 49, 52),
+        ("KEY", "cfunc", 0, 54, 58),
+        ("KEY", "return", 0, 60, 65),
+        ("KEY", "unpack", 0, 67, 72),
+        ("EOF", None, 0, 73, 73),
     ]
 
 def test_complex_numbers():

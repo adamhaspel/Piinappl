@@ -831,3 +831,528 @@ x''', "<test>")
 
     assert isinstance(result, Number)
     assert result.value == 5
+
+def test_func_call_no_args():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {greet()} { return: { 5 } }\ngreet()', "<test>")
+    tokens, error = lexer.lex()
+    
+    # Define function
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 5
+
+
+def test_func_call_1_arg():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {add_ten(x)} { return: { x + 10 } }\nadd_ten(5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 15
+
+def test_func_return_in_if():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {add_ten(x)} { if: {1 == 1} {return: { x + 10 } }}\nadd_ten(5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 15
+
+
+def test_func_call_multiple_args():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {add(x, y)} { return: { x + y } }\nadd(3, 7)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 10
+
+
+
+def test_cfunc_constant_function():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('cfunc: {multiply(x, y)} { return: { x * y } }\nmultiply(4, 5)\nvar: {multiply = 4}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 20
+
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is not None
+
+
+
+def test_func_nested():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {double(x)} { return: { x * 2 } }\nfunc: {quad(x)} { return: { double(double(x)) } }\nquad(3)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 12
+
+
+
+def test_return_multiple_values():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {get_coords()} { return: { 1, 2, 3 } }\nget_coords()', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, List)
+    assert [(v.__class__.__name__, v.value) for v in result.value] == [
+        ("Number", 1),
+        ("Number", 2),
+        ("Number", 3)
+    ]
+
+
+def test_error_304_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('undefined_func(5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 304
+    assert error.error_name == "SymbolGetError"
+    assert "undefined_func" in error.details
+    assert "not defined" in error.details
+
+
+def test_error_306_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {add(x, y)} { x + y }\nadd(5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert "takes 2 arguments" in error.details
+    assert "1 was given" in error.details
+
+
+def test_error_306_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {add(x, y)} { x + y }\nadd(1, 2, 3)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert "takes 2 argument" in error.details
+    assert "3 was given" in error.details
+
+
+def test_error_306_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('var: {x = 5}\nundefined_func()', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 304
+    assert error.error_name == "SymbolGetError"
+    assert "undefined_func" in error.details
+
+
+def test_error_307():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('return: { 5 }', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 307
+    assert error.error_name == "ReturnError"
+    assert "must be used in a function" in error.details
+
+def test_unpack():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {x, y = [1, 2]}\nx + y', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 3
+
+
+def test_unpack_more():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {a, b, c = [10, 20, 30]}\nb', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 20
+
+
+def test_unpack_from_function_return():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {get_pair()} { return: { [5, 10] } }\nunpack: {p1, p2 = get_pair()}\np1', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 5
+
+
+def test_error_308_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {x = [1, 2]}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 308
+    assert error.error_name == "UnpackError"
+    assert "Cannot unpack 1 item" in error.details
+
+
+def test_error_308_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {x, y = 5}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 308
+    assert error.error_name == "UnpackError"
+    assert "Cannot unpack non-iterable" in error.details
+    assert "Number" in error.details
+
+
+def test_error_308_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {x, y, z = [1, 2]}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 308
+    assert error.error_name == "UnpackError"
+    assert "Cannot unpack 2 values into 3 objects" in error.details
+
+
+def test_error_308_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('unpack: {x, y = [1, 2, 3]}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 308
+    assert error.error_name == "UnpackError"
+    assert "Cannot unpack 3 values into 2 objects" in error.details
+
+
+def test_error_305_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('cfunc: {x()} { 5 }\nvar: {x = 10}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 305
+    assert error.error_name == "ConstantError"
+    assert "already defined" in error.details
+
+
+#####################
+# INTEGRATION TESTS #
+#####################
+
+def test_integration_func_return_unpack():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {get_pair()} { return: { [100, 200] } }\nunpack: {a, b = get_pair()}\na + b', "<test>")
+    tokens, error = lexer.lex()
+    
+    # Define function
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 300
+
+
+def test_integration_multiple_functions():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('func: {double(x)} { return: { x * 2 } }\nfunc: {triple(x)} { return: { x * 3 } }\ndouble(5) + triple(5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 25
