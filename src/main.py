@@ -440,7 +440,7 @@ class Function(Value):
         return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
 
     def __repr__(self):
-        return f'<Function {self.name}>'
+        return f'<Function {self.name.value}>'
 
 class Boolean(Value):
     def __init__(self, value, lexer):
@@ -518,14 +518,14 @@ class List(Value):
             try:
                 return List(self.value * other.value, self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n"))
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
     def sub(self, node, other):
         if isinstance(other, Number):
             if other.value > len(self.value):
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of List and number longer than length', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of List and number longer than length', self.lexer.text.split("\n"))
             try:
                 if other.value > 0:
                     return List(self.value[:-other.value], self.lexer), None
@@ -533,7 +533,7 @@ class List(Value):
                     return self, None
                 return List(self.value[-other.value:], self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of List and non-integer', self.lexer.text.split("\n"))
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
     
@@ -547,7 +547,7 @@ class String(Value):
         
     def add(self, node, other):
         if isinstance(other, Number) or isinstance(other, String):
-            return String(self.value + other.value, self.lexer), None
+            return String(self.value + str(other.value), self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
@@ -556,23 +556,23 @@ class String(Value):
             try:
                 return String(self.value * other.value, self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
     def sub(self, node, other):
         if isinstance(other, Number):
             if other.value > len(self.value):
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of String and number longer than length', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of String and number longer than length', self.lexer.text.split("\n"))
             try:
                 return String(self.value[:-other.value], self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
     
     def __repr__(self):
-        return f"'{self.value}'"
+        return f"{self.value}"
 
 class Number(Value):
     def __init__(self, value, lexer):
@@ -618,14 +618,14 @@ class Number(Value):
             try:
                 return String(str(other.value) * self.value, self.lexer), None
             except:
-                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
+                return None, Error(303, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, f'Invalid operation of String and non-integer', self.lexer.text.split("\n"))
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
     def div(self, node, other):
         if isinstance(other, Number):
             if other.value == 0:
-                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n"))
+                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n"))
             return Number(self.value / other.value, self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
@@ -639,7 +639,7 @@ class Number(Value):
     def mod(self, node, other):
         if isinstance(other, Number):
             if other.value == 0:
-                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start, self.lexer.source), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n"))
+                return None, Error(302, Position(self.lexer.index, node.op.line, node.op.pos_start, node.node2.pos_end.source), node.node2.pos_end, 'Division by zero', self.lexer.text.split("\n"))
             return Number(self.value % other.value, self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
@@ -1538,10 +1538,10 @@ class Interpreter():
                 args.append(res)
             if len(args) not in [1, 2]:
                 waswere = "were"
-                if len(func.args) != 1:
+                if len(args) == 1:
                     waswere = "was"
                 s = "s"
-                if len(args) != 1:
+                if len(func.args) == 1:
                     s = ""
                 return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name.value} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
             value = []
@@ -1562,10 +1562,10 @@ class Interpreter():
         symboltable = SymbolTable(self.symboltable)
         if len(node.args) != (len(func.args)):
             waswere = "were"
-            if len(func.args) != 1:
+            if len(node.args) == 1:
                 waswere = "was"
             s = "s"
-            if len(node.args) != 1:
+            if len(func.args) == 1:
                 s = ""
             return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name.value} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
         if func.name.value == "print":
@@ -1580,7 +1580,6 @@ class Interpreter():
                 return None, error
             symboltable.set(func.args[node.args.index(i)].value, arg)
         interpreter = Interpreter(None, lexer, self.index, symboltable, node)
-
         for i in func.value:
             if not i:
                 continue
@@ -1619,8 +1618,8 @@ class Interpreter():
                                 return None, error
                             result.append(res)
                         return List(result, self.lexer), None
-                return None, error
-            
+                else:
+                    return None, error
         return None, None
     
     def visit_UnpackNode(self, node):
@@ -1656,6 +1655,8 @@ class Interpreter():
                 if not i:
                     continue
                 res, error = self.visit(i)
+                if error:
+                    return res, error
         else:
             if node.elifs:
                 res, error = self.visit(node.elifs)

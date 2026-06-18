@@ -321,6 +321,231 @@ def test_vardef_node():
     assert node.pos_end.line == 1
     assert node.pos_end.column == 12
     assert node.key.value == "const"
+
+def test_func_def_node_monoline():
+    lexer = Lexer("cfunc: {hi(a, b, c)} {1 + 2 + 3}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, FuncDefNode)
+    assert node.key.value == "cfunc" 
+    assert node.ident.value == "hi" 
+    assert [(t.value, t.pos_start, t.pos_end) for t in node.args] == [
+        ("a", 11, 11),
+        ("b", 14, 14),
+        ("c", 17, 17)
+    ]
+    assert isinstance(node.then[0], BinaryOpNode)
+    assert node.pos_end.line == 0
+
+def test_call_node():
+    lexer = Lexer("hi(a, 2, 'hi' + 6)", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, CallNode)
+    assert node.var.value == "hi" 
+    assert isinstance(node.args[0], VarGetNode)
+    assert isinstance(node.args[1], NumberNode)
+    assert isinstance(node.args[2], BinaryOpNode)
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 17
+
+def test_return_node():
+    lexer = Lexer("return: {1, 2}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, ReturnNode)
+    assert [(t.tok.value, t.pos_start.column, t.pos_end.column) for t in node.nodes] == [
+        (1, 9, 9),
+        (2, 12, 12)
+    ]
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 13
+
+def test_error_204_inst_7():
+    lexer = Lexer("func", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 4
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 4
+    assert error.details == 'Expected token: ":"'
+
+def test_error_204_inst_8():
+    lexer = Lexer("func:", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 5
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 5
+    assert error.details == 'Expected token: "{"'
+
+def test_error_204_inst_9():
+    lexer = Lexer("func: {", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 7
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 7
+    assert error.details == 'Expected token: IDENT'
+
+def test_error_204_inst_10():
+    lexer = Lexer("func: {hi", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 9
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+    assert error.details == 'Expected token: "("'
+
+def test_error_204_inst_11():
+    lexer = Lexer("func: {hi()}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 12
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 12
+    assert error.details == 'Expected token: "{"'
+
+def test_error_204_inst_10():
+    lexer = Lexer("return: ", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 8
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 8
+    assert error.details == 'Expected token: "{"'
+
+def test_error_201_inst_10():
+    lexer = Lexer("func: {hi(", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 9
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+    assert error.details == 'Unresolved grouping: "("'
+
+def test_error_201_inst_11():
+    lexer = Lexer("func: {hi()", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 6
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 6
+    assert error.details == 'Unresolved grouping: "{"'
+
+def test_error_201_inst_10():
+    lexer = Lexer("return: {hi()", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 8
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 8
+    assert error.details == 'Unresolved grouping: "{"'
+
+def test_error_201_inst_12():
+    lexer = Lexer("func: {hi()}{", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 12
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 12
+    assert error.details == 'Unresolved grouping: "{"'
     
 def test_varget_node():
     lexer = Lexer("x", "<test>")

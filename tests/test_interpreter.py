@@ -1077,8 +1077,8 @@ def test_error_306_inst_2():
     assert isinstance(error, Error)
     assert error.error_code == 306
     assert error.error_name == "CallError"
-    assert "takes 2 argument" in error.details
-    assert "3 was given" in error.details
+    assert "takes 2 arguments" in error.details
+    assert "3 were given" in error.details
 
 
 def test_error_306_inst_3():
@@ -1356,3 +1356,127 @@ def test_integration_multiple_functions():
     
     assert isinstance(result, Number)
     assert result.value == 25
+
+def test_print(capsys):
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('print("hi" + 9)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+
+    assert error is None
+    captured = capsys.readouterr().out
+    assert captured[:-1] == "hi9"
+
+def test_until():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('until(5)\nuntil(2, 5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    assert isinstance(_, List)
+    assert [(t.__class__.__name__, t.value) for t in _.value] == [
+        ("Number", 0),
+        ("Number", 1),
+        ("Number", 2),
+        ("Number", 3),
+        ("Number", 4)
+    ]
+    
+    
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is None
+    assert [(t.__class__.__name__, t.value) for t in _.value] == [
+        ("Number", 2),
+        ("Number", 3),
+        ("Number", 4)
+    ]
+    
+def test_error_306_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('until(5.5)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_start.line == 0
+    assert error.pos_end.column == 9
+    assert "takes whole integer arguments" in error.details
+
+def test_error_306_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('until(1,2,3)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    assert error is None
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    _, error = interpreter.visit(node)
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_start.line == 0
+    assert error.pos_end.column == 11
+    assert "until takes 2 arguments; 3 were given instead" in error.details
+    
+
+def test_reprs(capsys):
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('print(print)\nprint(True)\nprint(None)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+
+    assert error is None
+    captured = capsys.readouterr().out
+    assert captured[:-1] == "<Function print>"
+
+    parser = Parser(tokens[1], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+
+    assert error is None
+    captured = capsys.readouterr().out
+    assert captured[:-1] == "True"
+
+    parser = Parser(tokens[2], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+
+    assert error is None
+    captured = capsys.readouterr().out
+    assert captured[:-1] == "None"
