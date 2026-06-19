@@ -20,9 +20,12 @@ if not "--test" in sys.argv:
         print(cs("[INTERNAL] Error 401: Tests failed. Shell will not start.", "rgb(255, 100, 100)"))
         sys.exit(1)
 
+text = ""
+line = -1
+
 while True:
     try:
-        text = input(">>> ")
+        text += (input(">>> ")+"\n")
     except KeyboardInterrupt:
         print("")
         continue
@@ -30,27 +33,30 @@ while True:
         print("")
         break
 
+    line += 1
+
     lexer = Lexer(text, "<shell>")
     tokens, error = lexer.lex()
 
     if error:
-        print(error)
+        if error.pos_start.line == line:
+            print(error)
     else:
+        tokens = tokens[line]
         nodes = []
-        for i in tokens:
-            parser = Parser(i, "<shell>", lexer)
-            node, error = parser.parse()
+        parser = Parser(tokens, "<shell>", lexer)
+        node, error = parser.parse()
+
+        if error:
+            print(error)
+            continue
+        else:
+            if node == None:
+                continue
+            interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+            result, error = interpreter.visit(node)
 
             if error:
                 print(error)
-                break
-            nodes.append(node)
-        if not error:
-            for i in nodes:
-                interpreter = Interpreter(i, lexer, "<shell>", GlobalSymbolTable)
-                result, error = interpreter.visit(i)
-
-                if error:
-                    print(error)
-                else:
-                    print(result)
+            else:
+                print(result)

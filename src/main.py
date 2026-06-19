@@ -101,6 +101,8 @@ class Error():
             self.error_name = "ReturnError"
         if self.error_code == 308:
             self.error_name = "UnpackError"
+        if self.error_code == 309:
+            self.error_name = "IndexError"
         self.pos_start = pos_start
         self.pos_end = pos_end
         self.details = details
@@ -240,6 +242,16 @@ class UnaryOpNode():
         
     def __repr__(self):
         return f"({self.op} {self.node})"
+    
+class ListCallNode():
+    def __init__(self, node, call, rsquare, index, source):
+        self.node = node
+        self.call = call
+        self.pos_start = self.node.pos_start
+        self.pos_end = Position(index, rsquare.line, rsquare.pos_end, source)
+        
+    def __repr__(self):
+        return f"({self.node}[{self.call}])"
     
 class VarDefNode():
     def __init__(self, key, name, eqtype, value, pos_end, index, source):
@@ -957,6 +969,8 @@ class Parser():
         
     def parse(self):
         self.current_tok = self.tokens[0]
+        if self.current_tok.type == "EOF":
+            return None, None
         node, error = self.expr()
         if error:
             return None, error
@@ -1355,15 +1369,31 @@ class Parser():
             # Unary Operations
             op = self.current_tok
             self.advance()
-            node, error = self.num()
+            node, error = self.list_call()
             if error:
                 return None, error
             return UnaryOpNode(op, node, self.index, self.source), None
         else:
             return None, Error(202, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Unexpected token: "{self.current_tok}"', self.lexer.text.split("\n"))
-        
+
+    def list_call(self):
+        _object, error = self.num()
+        if error:
+            return None, error
+        while self.current_tok.type == "LSQUARE":
+            lsquare = self.current_tok
+            self.advance()
+            call, error = self.andor()
+            if error: return None, error
+            if self.current_tok.type != "RSQUARE":
+                return None, Error(201, Position(self.index, lsquare.line, lsquare.pos_start, self.source), Position(self.index, lsquare.line, lsquare.pos_end, self.source), 'Unresolved grouping: "["', self.lexer.text.split("\n"))
+            rsquare = self.current_tok
+            self.advance()
+            _object = ListCallNode(_object, call, rsquare, self.index, self.source)
+        return _object, None
+
     def exp(self):
-        node1, error = self.num()
+        node1, error = self.list_call()
         if error:
             return None, error
         
@@ -1644,6 +1674,22 @@ class Interpreter():
     
     def visit_ReturnNode(self, node):
         return node, Error(307, node.pos_start, node.pos_end, f'Return must be used in a function', self.lexer.text.split("\n"))
+    
+    def visit_ListCallNode(self, node):
+        tocall, error = self.visit(node.node)
+        if error: return None, error
+        if not (isinstance(tocall, List) or isinstance(tocall, String)):
+            return None, Error(309, node.pos_start, node.node.pos_end, f"Cannot index type {tocall.__class__.__name__}", self.lexer.text.split("\n"))
+        index, error = self.visit(node.call)
+        if error:
+            return None ,error
+        if not isinstance(index, Number):
+            return None, Error(309, node.call.pos_start, node.call.pos_end, f"Cannot index with type {index.__class__.__name__}", self.lexer.text.split("\n"))
+        if index.value % 1 != 0:
+            return None, Error(309, node.call.pos_start, node.call.pos_end, f"Cannot index with non-integer", self.lexer.text.split("\n"))
+        if (index.value > -1 and len(tocall.value)-1 < index.value) or (index.value < 0 and len(tocall.value) < -1 * index.value):
+            return None, Error(309, node.call.pos_start, node.call.pos_end, f"Out of index range", self.lexer.text.split("\n"))
+        return tocall.value[index.value], None
     
     def visit_IfNode(self, node):
         cond, error = self.visit(node.cond)

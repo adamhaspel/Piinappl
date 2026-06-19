@@ -1032,6 +1032,102 @@ def test_error_304_inst_3():
     assert "undefined_func" in error.details
     assert "not defined" in error.details
 
+def test_error_309_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('1[1]', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 0
+    assert error.pos_end.column == 0
+    assert "Cannot index type" in error.details
+    assert "Number" in error.details
+
+def test_error_309_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('""[None]', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 3
+    assert error.pos_end.column == 6
+    assert "Cannot index with type" in error.details
+    assert "NoneType" in error.details
+
+def test_error_309_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('1[1.1]', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 2
+    assert error.pos_end.column == 4
+    assert "Cannot index with non-integer" in error.details
+
+def test_error_309_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[1][24]', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 4
+    assert error.pos_end.column == 5
+    assert "Out of index range" in error.details
+
+def test_error_309_inst_5():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[1][-24]', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 4
+    assert error.pos_end.column == 6
+    assert "Out of index range" in error.details
 
 def test_error_306_inst_1():
     GlobalSymbolTable = SymbolTable()

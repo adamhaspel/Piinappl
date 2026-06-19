@@ -34,6 +34,27 @@ def test_number_and_bin_op():
     assert node.pos_start.column == 0
     assert node.pos_end.line == 0
     assert node.pos_end.column == 12
+
+def test_call_node():
+    lexer = Lexer("1[2][3]", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, ListCallNode)
+    assert isinstance(node.call, Number)
+    assert node.call.tok.value == 3
+    assert isinstance(node.node, ListCallNode)
+    assert isinstance(node.node.call, Number)
+    assert node.node.call.tok.value == 2
+    assert isinstance(node.node.node, Number)
+    assert node.node.node.tok.value == 1
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 6
     
 def test_unary_op():
     lexer = Lexer("-5 % 6", "<test>")
@@ -732,7 +753,7 @@ def test_else_and_elif():
     assert isinstance(node.elifs._else[0], NumberNode)
     assert node.elifs._else[0].tok.value == 7
 
-def test_error_201_var_inst_2():
+def test_error_201_inst_13():
     lexer = Lexer("var: {x = 1 + 2 * (3 - 4)", "<test>")
     tokens, error = lexer.lex()
     
@@ -859,4 +880,20 @@ def test_error_201_inst_9():
     assert error.pos_start.column == 0
     assert error.pos_end.line == 0
     assert error.pos_end.column == 0
+    assert error.details == "Unresolved grouping: \"[\""
+
+def test_error_201_inst_14():
+    lexer = Lexer('1[1', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 1
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 1
     assert error.details == "Unresolved grouping: \"[\""
