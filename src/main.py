@@ -201,6 +201,14 @@ class ListNode():
         self.pos_start = Position(index, l.line, l.pos_start, source)
         self.pos_end = Position(index, r.line, r.pos_end, source)
 
+class DictNode():
+    def __init__(self, l, contents, r, index, source):
+        self.l = l
+        self.r = r
+        self.contents = contents
+        self.pos_start = Position(index, l.line, l.pos_start, source)
+        self.pos_end = Position(index, r.line, r.pos_end, source)
+
 class IfNode():
     def __init__(self, cond, then, pos_end, elifs=None, _else=None, source="<file>"):
         self.cond = cond
@@ -358,7 +366,7 @@ class Value():
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
     def _in(self, node, other):
-        if isinstance(other, List):
+        if isinstance(other, List) or isinstance(other, Dictionary):
             for i in other.value:
                 res, error = self.eq(node, i)
                 if error:
@@ -474,6 +482,88 @@ class Boolean(Value):
     def __repr__(self):
         return "True" if self.value else "False"
     
+class Dictionary(Value):
+    def __init__(self, value, lexer):
+        super().__init__(value, lexer)
+        self.bool = True
+
+    def eq(self, node, other):
+        if other.__class__.__name__ == "Dictionary":
+            if len(self.value) == len(self.value):
+                for i in self.value:
+                    _bool = False
+                    for j in other.value:
+                        eq1, error = i.eq(node, j)
+                        if error: return None, error
+                        eq2, error = self.value[i].eq(node, other.value[j])
+                        if error: return None, error
+                        if eq2.bool and eq1.bool:
+                            _bool = True
+                            break
+                    if _bool == False:
+                        return Boolean(0, self.lexer), None
+                return Boolean(1, self.lexer), None
+        return Boolean(0, self.lexer), None
+
+    def lt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "List":
+            return Boolean(len(self.value) < len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+        
+    def gt(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "List":
+            return Boolean(len(self.value) > len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+
+    def gte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "List":
+            return Boolean(len(self.value) >= len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+
+    def lte(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "List":
+            return Boolean(len(self.value) <= len(other.value), self.lexer), None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+    
+    def neq(self, node, other):
+        eq, error = self.eq(node, other)
+        if error:
+            return None, error
+        return Boolean(int(not(eq.value)), self.lexer), None
+
+    def add(self, node, other):
+        if isinstance(other, Dictionary):
+            for i in other.value:
+                key = i
+                item = other.value[i]
+
+                for j in self.value:
+                    eq, error = key.eq(node, j)
+                    if eq.bool:
+                        self.value.pop(j)
+                        break
+                self.value.update({key:item})
+            return self, None
+        else:
+            return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+        
+    def sub(self, node, other):
+        for i in list(self.value):
+            eq, error = other.eq(node, i)
+            if error:
+                return None, error
+            if eq.bool:
+                self.value.pop(i)
+                return self, None
+        return None, Error(309, Position(self.lexer.index, node.node2.pos_start.line, node.node2.pos_start.column, node.node2.pos_end.source), node.pos_end, f'Item not in dictionary index', self.lexer.text.split("\n"))
+    
+    def __repr__(self):
+        return f"{self.value}"
+    
 class List(Value):
     def __init__(self, value, lexer):
         super().__init__(value, lexer)
@@ -490,25 +580,25 @@ class List(Value):
         return Boolean(0, self.lexer), None
 
     def lt(self, node, other):
-        if self.__class__.__name__ == other.__class__.__name__:
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "Dictionary":
             return Boolean(len(self.value) < len(other.value), self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
         
     def gt(self, node, other):
-        if self.__class__.__name__ == other.__class__.__name__:
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "Dictionary":
             return Boolean(len(self.value) > len(other.value), self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
 
     def gte(self, node, other):
-        if self.__class__.__name__ == other.__class__.__name__:
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "Dictionary":
             return Boolean(len(self.value) >= len(other.value), self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
 
     def lte(self, node, other):
-        if self.__class__.__name__ == other.__class__.__name__:
+        if self.__class__.__name__ == other.__class__.__name__ or other.__class__.__name__ == "Dictionary":
             return Boolean(len(self.value) <= len(other.value), self.lexer), None
         else:
             return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
@@ -594,7 +684,7 @@ class Number(Value):
         self.bool = True
 
     def _in(self, node, other):
-        if isinstance(other, List):
+        if isinstance(other, List) or isinstance(other, Dictionary):
             for i in other.value:
                 res, error = self.eq(node, i)
                 if error:
@@ -1348,6 +1438,36 @@ class Parser():
                         break
                     self.advance()
             return ListNode(lsquare, contents, rsquare, self.index, self.source), None
+        elif self.current_tok.type == "LBRACE":
+            # Dicts
+            lsquare = self.current_tok
+            self.advance()
+            contents = {}
+            if self.current_tok.type == "RBRACE":
+                rsquare = self.current_tok
+                self.advance()
+            else:
+                while self.current_tok.type != "RBRACE":
+                    node1, error = self.andor()
+                    if error:
+                        return None, error
+                    if self.current_tok.type != "COLON":
+                        return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: ":"', self.lexer.text.split("\n"))
+                    self.advance()
+                    node2, error = self.andor()
+                    if error:
+                        return None, error
+                    if self.current_tok.type != "COMMA" and self.current_tok.type != "RBRACE":
+                        if self.current_tok.type == "EOF":
+                            return None, Error(201, Position(self.index, lsquare.line, lsquare.pos_start, self.source), Position(self.index, lsquare.line, lsquare.pos_end, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+                        return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: ","', self.lexer.text.split("\n"))
+                    contents.update({node1:node2})
+                    if self.current_tok.type == "RBRACE":
+                        rsquare = self.current_tok
+                        self.advance()
+                        break
+                    self.advance()
+            return DictNode(lsquare, contents, rsquare, self.index, self.source), None
         elif self.current_tok.type == "LPAREN":
             # Parentheses
             lparen = self.current_tok
@@ -1678,11 +1798,21 @@ class Interpreter():
     def visit_ListCallNode(self, node):
         tocall, error = self.visit(node.node)
         if error: return None, error
-        if not (isinstance(tocall, List) or isinstance(tocall, String)):
+        if not (isinstance(tocall, List) or isinstance(tocall, String) or isinstance(tocall, Dictionary)):
             return None, Error(309, node.pos_start, node.node.pos_end, f"Cannot index type {tocall.__class__.__name__}", self.lexer.text.split("\n"))
         index, error = self.visit(node.call)
         if error:
             return None ,error
+        if isinstance(tocall, Dictionary):
+            _in, error = index._in(node, tocall)
+            if error:
+                return None, error
+            for i in tocall.value:
+                eq, error = index.eq(node, i)
+                if error: return None, error
+                if eq.bool:
+                    return tocall.value[i], None
+                return None, Error(309, node.call.pos_start, node.call.pos_end, f"Item not in dictionary index", self.lexer.text.split("\n"))
         if not isinstance(index, Number):
             return None, Error(309, node.call.pos_start, node.call.pos_end, f"Cannot index with type {index.__class__.__name__}", self.lexer.text.split("\n"))
         if index.value % 1 != 0:
@@ -1715,6 +1845,23 @@ class Interpreter():
             else:
                 return None, None
         return res, error
+    
+    def visit_DictNode(self, node):
+        res = {}
+        for i in node.contents:
+            key, error = self.visit(i)
+            if error: return None, error
+            item, error = self.visit(node.contents[i])
+            if error: return None, error
+
+            for j in res:
+                eq, error = key.eq(node, j)
+                if eq.bool:
+                    res.pop(j)
+                    break
+
+            res.update({key:item})
+        return Dictionary(res, self.lexer), None
     
     def visit_BinaryOpNode(self, node):
         node1, error = self.visit(node.node1)

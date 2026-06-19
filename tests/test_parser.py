@@ -483,7 +483,7 @@ def test_error_204_inst_11():
     assert error.pos_end.column == 12
     assert error.details == 'Expected token: "{"'
 
-def test_error_204_inst_10():
+def test_error_204_inst_12():
     lexer = Lexer("return: ", "<test>")
     tokens, error = lexer.lex()
     
@@ -669,7 +669,7 @@ def test_error_202_inst_2():
     assert error.pos_end.column == 9
     assert error.details == 'Unexpected token: "EOF"'
 
-def test_error_202_inst_2():
+def test_error_202_inst_3():
     lexer = Lexer("var: {x =}", "<test>")
     tokens, error = lexer.lex()
     
@@ -897,3 +897,104 @@ def test_error_201_inst_14():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 1
     assert error.details == "Unresolved grouping: \"[\""
+
+def test_dict_node_empty():
+    lexer = Lexer('{}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, DictNode)
+    assert [(t.tok, t.pos_start, t.pos_end) for t in node.contents] == []
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 1
+
+def test_dict_node_1():
+    lexer = Lexer('{"one": 1}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, DictNode)
+    assert [(t.tok.value, t.pos_start.column, t.pos_end.column, node.contents[t].tok.value, node.contents[t].pos_start.column, node.contents[t].pos_end.column) for t in node.contents] == [
+        ("one", 1, 5, 1, 8, 8)
+    ]
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 9
+
+def test_dict_node_2():
+    lexer = Lexer('{"one": 1, "two": 2}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, DictNode)
+    assert [(t.tok.value, t.pos_start.column, t.pos_end.column, node.contents[t].tok.value, node.contents[t].pos_start.column, node.contents[t].pos_end.column) for t in node.contents] == [
+        ("one", 1, 5, 1, 8, 8),
+        ("two", 11, 15, 2, 18, 18)
+    ]
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 19
+
+def test_error_201_inst_15():
+    lexer = Lexer("{1 + 1:2", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 201
+    assert error.error_name == "UnresolvedGroupErrorP"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 0
+    assert error.details == 'Unresolved grouping: "{"'
+
+def test_error_204_inst_13():
+    lexer = Lexer("{ 1}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 3
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 3
+    assert error.details == 'Expected token: ":"'
+
+def test_error_202_inst_4():
+    lexer = Lexer("{ 1:}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 202
+    assert error.error_name == "UnexpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 4
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 4
+    assert error.details == 'Unexpected token: "RBRACE"'
