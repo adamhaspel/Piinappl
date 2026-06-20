@@ -103,27 +103,6 @@ def test_string_ops():
     assert isinstance(result, String)
     assert result.value == "abcdefdefd"
     
-def test_error_301_inst_2():
-    GlobalSymbolTable = SymbolTable()
-    lexer = Lexer("'hello' / 5", "<test>")
-    tokens, error = lexer.lex()
-    
-    parser = Parser(tokens[0], "<shell>", lexer)
-    node, error = parser.parse()
-    
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    result, error = interpreter.visit(node)
-    
-    assert error is not None
-    assert isinstance(error, Error)
-    assert error.error_code == 301
-    assert error.error_name == "IncompatibleOpError"
-    assert error.details == "Unsupported operation between String and Number"
-    assert error.pos_start.line == 0
-    assert error.pos_start.column == 0
-    assert error.pos_end.line == 0
-    assert error.pos_end.column == 10
-    
 def test_error_301_inst_3():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer("'hello' % 5", "<test>")
@@ -355,7 +334,39 @@ def test_error_301_inst_12():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 5
 
-def test_error_301_inst_13():
+def test_string_div():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("'hellomynameisbob' / 3", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, String)
+    assert result.value == 'hlymsb'
+
+def test_list_div():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("[1, 2, 3, 4, 5] / -2", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, List)
+    assert result.value[0].value == 5
+    assert result.value[1].value == 3
+    assert result.value[2].value == 1
+
+def test_error_301_inst_2():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer("[] % 2", "<test>")
     tokens, error = lexer.lex()
@@ -416,6 +427,153 @@ def test_error_302_inst_2():
     assert error.pos_start.column == 2
     assert error.pos_end.line == 0
     assert error.pos_end.column == 10
+
+def test_error_302_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("[3] / 0", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 302
+    assert error.error_name == "RuntimeError"
+    assert error.details == "Division by zero"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 4
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 6
+
+def test_error_302_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("for: {i [3, 4, 5] step 0} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 302
+    assert error.error_name == "RuntimeError"
+    assert error.details == "Division by zero"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 23
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 23
+
+def test_error_310_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("loop: {'hi'} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 310
+    assert error.error_name == "LoopError"
+    assert error.details == "Loop only takes number loops"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 7
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 10
+
+def test_error_310_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("loop: {4.44} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 310
+    assert error.error_name == "LoopError"
+    assert error.details == "Loop only takes integer loops"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 7
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 10
+
+def test_error_310_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("for: {i [] step True} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 310
+    assert error.error_name == "LoopError"
+    assert error.details == "For only takes number steps"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 16
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 19
+
+def test_error_310_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("for: {i [] step 4.33} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 310
+    assert error.error_name == "LoopError"
+    assert error.details == "For only takes integer steps"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 16
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 19
+
+def test_error_310_inst_5():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("for: {i 33} {}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 310
+    assert error.error_name == "LoopError"
+    assert error.details == "For only takes string, dictionary and list loops"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 8
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
     
 def test_error_303_inst_1():
     GlobalSymbolTable = SymbolTable()
@@ -567,6 +725,23 @@ def test_variables():
 
     assert isinstance(result, Number)
     assert result.value == 6
+
+def test_empty_multi_line():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''if: {True} {} elif: {False} {} else: {}
+for: {i []} {}
+loop: {2} {}
+while: {False} {}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+        assert error is None
 
 def test_var_eqs():
     GlobalSymbolTable = SymbolTable()
@@ -1050,19 +1225,12 @@ def test_func_call_no_args():
     lexer = Lexer('func: {greet()} { return: { 5 } }\ngreet()', "<test>")
     tokens, error = lexer.lex()
     
-    # Define function
-    parser = Parser(tokens[0], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    _, error = interpreter.visit(node)
-    assert error is None
-    
-    parser = Parser(tokens[1], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    result, error = interpreter.visit(node)
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
     
     assert error is None
     assert isinstance(result, Number)
@@ -1074,19 +1242,12 @@ def test_func_call_1_arg():
     lexer = Lexer('func: {add_ten(x)} { return: { x + 10 } }\nadd_ten(5)', "<test>")
     tokens, error = lexer.lex()
     
-    parser = Parser(tokens[0], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    _, error = interpreter.visit(node)
-    assert error is None
-    
-    parser = Parser(tokens[1], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    result, error = interpreter.visit(node)
-    assert error is None
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
     
     assert isinstance(result, Number)
     assert result.value == 15
@@ -1096,19 +1257,12 @@ def test_func_return_in_if():
     lexer = Lexer('func: {add_ten(x)} { if: {1 == 1} {return: { x + 10 } }}\nadd_ten(5)', "<test>")
     tokens, error = lexer.lex()
     
-    parser = Parser(tokens[0], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    _, error = interpreter.visit(node)
-    assert error is None
-    
-    parser = Parser(tokens[1], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    result, error = interpreter.visit(node)
-    assert error is None
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
     
     assert isinstance(result, Number)
     assert result.value == 15
@@ -1119,24 +1273,164 @@ def test_func_call_multiple_args():
     lexer = Lexer('func: {add(x, y)} { return: { x + y } }\nadd(3, 7)', "<test>")
     tokens, error = lexer.lex()
     
-    parser = Parser(tokens[0], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    _, error = interpreter.visit(node)
-    assert error is None
-    
-    parser = Parser(tokens[1], "<shell>", lexer)
-    node, error = parser.parse()
-    assert error is None
-    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
-    result, error = interpreter.visit(node)
-    assert error is None
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
     
     assert isinstance(result, Number)
     assert result.value == 10
 
+def test_loop():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('var: {x = 4}\nloop: {x - 2} {var: {x += 2}}\nx', "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 8
 
+def test_while():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('var: {x = 2}\nwhile: {x < 10} {var: {x += 1}}\nx', "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 10
+
+def test_for():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('var: {x = 0}\nfor: {i [1, None, 2, None, 3, None, 4, None, 5] step 2} {var: {x += i}}\nx', "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+    
+    assert isinstance(result, Number)
+    assert result.value == 15
+
+def test_continue():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''var: {x = 0}
+for: {i [1, 2, 3, 4, 5]} {
+    if: {i == 3} {
+        continue
+    }
+    var: {x += i}
+}
+x''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+    
+    assert isinstance(result, Number)
+    assert result.value == 12
+
+def test_break():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''var: {x = 0}
+for: {i [1, 2, 3, 4, 5]} {
+    if: {i == 4} {
+        break
+    }
+    var: {x += i}
+}
+x''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+    
+    assert isinstance(result, Number)
+    assert result.value == 6
+
+def test_restart():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''var: {x = 0}
+for: {i [1, 2, 3, 4, 5]} {
+    var: {x += i}
+    if: {x <= 20} {
+        restart
+    }
+}
+x''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        assert error is None
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        assert error is None
+        line = node.pos_end.line + 1
+    
+    assert isinstance(result, Number)
+    assert result.value == 35
+
+def test_error_311():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('break', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+
+    assert isinstance(error, Error)
+    assert error.error_code == 311
+    assert error.error_name == "LoopKeyError"
+    assert "must be used in a loop" in error.details
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 4
 
 def test_cfunc_constant_function():
     GlobalSymbolTable = SymbolTable()

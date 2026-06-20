@@ -1,8 +1,0 @@
-func: {addplustwo(x, y)}  {
-    if: {True} {
-        return: {4}
-    }
-    return: {x + y + 2}
-}
-
-print(addplustwo(4, 6) / 2)

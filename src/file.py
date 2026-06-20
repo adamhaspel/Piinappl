@@ -18,25 +18,29 @@ if error:
 
 line = 0
 while line < len(tokens):
-    if len(tokens[line]) == 1:
-        line += 1
-        continue
-    parser = Parser(tokens[line], sys.argv[1], lexer)
-    node, error = parser.parse()
+    try:
+        if len(tokens[line]) == 1:
+            line += 1
+            continue
+        parser = Parser(tokens[line], sys.argv[1], lexer)
+        node, error = parser.parse()
 
-    if error:
-        print(error)
-        sys.exit(1)
+        if error:
+            print(error)
+            sys.exit(1)
 
-    # print(node)
+        # print(node)
 
-    interpreter = Interpreter(node, lexer, sys.argv[1], GlobalSymbolTable)
-    result, error = interpreter.visit(node)
+        interpreter = Interpreter(node, lexer, sys.argv[1], GlobalSymbolTable)
+        result, error = interpreter.visit(node)
 
-    if error:
-        print(error)
-        sys.exit(1)
+        if error:
+            print(error)
+            sys.exit(1)
 
-    # print(result)
+        # print(result)
 
-    line = node.pos_end.line + 1
+        line = node.pos_end.line + 1
+    except KeyboardInterrupt:
+        print('\n')
+        break

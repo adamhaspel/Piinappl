@@ -117,6 +117,23 @@ def test_lexer_produces_tokens_set_4():
         ("EOF", None, 0, 73, 73),
     ]
 
+def test_lexer_produces_tokens_set_5():
+    lexer = Lexer("for while loop break continue restart step", "<test>")
+    tokens, error = lexer.lex()
+
+    assert error is None
+
+    assert [(t.type, t.value, t.line, t.pos_start, t.pos_end) for t in tokens[0]] == [
+        ("KEY", "for", 0, 0, 2),
+        ("KEY", "while", 0, 4, 8),
+        ("KEY", "loop", 0, 10, 13),
+        ("KEY", "break", 0, 15, 19),
+        ("KEY", "continue", 0, 21, 28),
+        ("KEY", "restart", 0, 30, 36),
+        ("KEY", "step", 0, 38,41),
+        ("EOF", None, 0, 42, 42)
+    ]
+
 def test_complex_numbers():
     lexer = Lexer("3.14 + 271", "<test>")
     tokens, error = lexer.lex()

@@ -307,7 +307,7 @@ def test_error_203():
     assert error.pos_end.column == 12
     assert error.details == 'Conjoined expression'
     
-def test_vardef_node():
+def test_var_def_node():
     lexer = Lexer("var: {x = 5}\nconst: {y = 5}", "<test>")
     tokens, error = lexer.lex()
     
@@ -998,3 +998,109 @@ def test_error_202_inst_4():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 4
     assert error.details == 'Unexpected token: "RBRACE"'
+
+def test_error_202_inst_5():
+    lexer = Lexer("for: {i [1, 2] + [3] step}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 202
+    assert error.error_name == "UnexpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 25
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 25
+    assert error.details == 'Unexpected token: "RBRACE"'
+
+def test_error_202_inst_6():
+    lexer = Lexer("for: {i }", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 202
+    assert error.error_name == "UnexpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 8
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 8
+    assert error.details == 'Unexpected token: "RBRACE"'
+
+def test_loop_node():
+    lexer = Lexer('loop: {3 + 3} {print("hi")}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, LoopNode)
+    assert isinstance(node.loopcnt, BinaryOpNode)
+    assert node.loopcnt.node1.tok.value + node.loopcnt.node2.tok.value == 6
+    assert isinstance(node.then[0], CallNode)
+    assert node.pos_end.line == 0
+
+def test_while_node():
+    lexer = Lexer('while: { True} {print("hi")}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, WhileNode)
+    assert isinstance(node.cond, VarGetNode)
+    assert node.cond.name.value == "True"
+    assert isinstance(node.then[0], CallNode)
+    assert node.pos_end.line == 0
+
+def test_for_node():
+    lexer = Lexer('for: {i [1, 2] + [3]} {print("hi")}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, ForNode)
+    assert isinstance(node.loopcnt, BinaryOpNode)
+    assert node.ident.value == "i"
+    assert node.step == None
+    assert isinstance(node.then[0], CallNode)
+    assert node.pos_end.line == 0
+
+def test_for_node_step():
+    lexer = Lexer('for: {i [1, 2] + [3] step 6} {print("hi")}', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, ForNode)
+    assert isinstance(node.loopcnt, BinaryOpNode)
+    assert node.ident.value == "i"
+    assert isinstance(node.step, NumberNode)
+    assert isinstance(node.then[0], CallNode)
+    assert node.pos_end.line == 0
+
+def test_continue_break_restart_node():
+    lexer = Lexer('break', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+
+    assert error is None
+    assert isinstance(node, BreakContinueRestartNode)
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 4
