@@ -118,7 +118,7 @@ def test_lexer_produces_tokens_set_4():
     ]
 
 def test_lexer_produces_tokens_set_5():
-    lexer = Lexer("for while loop break continue restart step", "<test>")
+    lexer = Lexer("for while loop break continue restart step .", "<test>")
     tokens, error = lexer.lex()
 
     assert error is None
@@ -131,7 +131,8 @@ def test_lexer_produces_tokens_set_5():
         ("KEY", "continue", 0, 21, 28),
         ("KEY", "restart", 0, 30, 36),
         ("KEY", "step", 0, 38,41),
-        ("EOF", None, 0, 42, 42)
+        ("DOT", None, 0, 43, 43),
+        ("EOF", None, 0, 44, 44)
     ]
 
 def test_complex_numbers():
@@ -198,7 +199,7 @@ def test_if():
         ('EOF', None, 0, 12, 12)
     ]
     
-def test_error_102_inst_1():
+def test_error_102():
     lexer = Lexer("3.14.15", "<test>")
     tokens, error = lexer.lex()
 
@@ -211,20 +212,6 @@ def test_error_102_inst_1():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 4
     assert error.details == 'Too many dots in number'
-    
-def test_error_102_inst_2():
-    lexer = Lexer("3.", "<test>")
-    tokens, error = lexer.lex()
-
-    assert tokens is None
-    
-    assert error.error_code == 102
-    assert error.error_name == "InvalidNumError"
-    assert error.pos_start.line == 0
-    assert error.pos_start.column == 1
-    assert error.pos_end.line == 0
-    assert error.pos_end.column == 1
-    assert error.details == 'Number cannot end with a dot'
     
 def test_error_103():
     lexer = Lexer('"Hello', "<test>")

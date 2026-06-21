@@ -831,6 +831,50 @@ def test_error_304_inst_1():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 0
 
+def test_error_312_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("'hi'.'bye'", "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Attribute must be identifier'
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 5
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 9
+
+def test_error_312_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("print.notreal", "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Object <Function print> does not have attribute "notreal"'
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 6
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 12
+
 def test_error_305_inst_1():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer("const: {x = 3}\nvar: {x = 5}", "<test>")
@@ -929,9 +973,9 @@ def test_dict():
     
     assert isinstance(result, Dictionary)
     assert [(t.__class__.__name__, t.value, result.value[t].__class__.__name__, str(result.value[t].value)) for t in result.value] == [
-        ("String", "hi", "Boolean", "True"),
+        ("String", 'hi', "Boolean", "True"),
         ("Number", 3, "String", "not none"),
-        ("Number", 0, "List", "[1, bye]"),
+        ("Number", 0, "List", "[1, 'bye']"),
     ]
 
 def test_dict_ops():
@@ -1121,6 +1165,102 @@ def test_in_string_and_num():
     assert error is None
     assert isinstance(result, Boolean)
     assert result.value == 1
+
+def test_attr_length():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('"hellomate".length', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 9
+
+def test_attr_digits():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('4.4.digits', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 2
+
+def test_attr_keys():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('{2: 3, 4: 1}.keys', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, List)
+    assert [(t.__class__.__name__, t.value) for t in result.value] == [
+        ("Number", 2),
+        ("Number", 4)
+    ]
+
+def test_attr_index_dict():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('{2: 3, 6: "hi", 4: 1}.index("hi")', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 6
+
+def test_attr_index_list():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[2, 3, 6, "hi", 4, 1].index("hi")', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 3
+
+def test_attr_values():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('{2: 3, 4: 1}.values', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is None
+    assert isinstance(result, List)
+    assert [(t.__class__.__name__, t.value) for t in result.value] == [
+        ("Number", 3),
+        ("Number", 1)
+    ]
 
 def test_if_execution_else_and_elif_1():
     GlobalSymbolTable = SymbolTable()
@@ -1587,6 +1727,44 @@ def test_error_309_inst_7():
     assert error.pos_start.column == 28
     assert error.pos_end.column == 31
     assert "Item not in dictionary index" in error.details
+
+def test_error_309_inst_8():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('{ 1: {2 :4, 6: 9}, None: 7}.index(27)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 34
+    assert error.pos_end.column == 35
+    assert "Item not in dictionary values" in error.details
+
+def test_error_309_inst_9():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('[1, 2, 3, 4, 5].index(True)', "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<shell>", lexer)
+    node, error = parser.parse()
+    
+    interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+    result, error = interpreter.visit(node)
+    
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 309
+    assert error.error_name == "IndexError"
+    assert error.pos_start.column == 22
+    assert error.pos_end.column == 25
+    assert "Item not in list" in error.details
 
 def test_error_309_inst_1():
     GlobalSymbolTable = SymbolTable()

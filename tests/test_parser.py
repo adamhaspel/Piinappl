@@ -371,7 +371,7 @@ def test_call_node():
     
     assert error is None
     assert isinstance(node, CallNode)
-    assert node.var.value == "hi" 
+    assert node.var.name.value == "hi" 
     assert isinstance(node.args[0], VarGetNode)
     assert isinstance(node.args[1], NumberNode)
     assert isinstance(node.args[2], BinaryOpNode)
@@ -379,6 +379,27 @@ def test_call_node():
     assert node.pos_start.column == 0
     assert node.pos_end.line == 0
     assert node.pos_end.column == 17
+
+def test_bin_op_attr_node():
+    lexer = Lexer("26.attr.sub()", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    assert isinstance(node, CallNode)
+    assert isinstance(node.var, BinaryOpNode)
+    assert node.var.op.type == "DOT"
+    assert isinstance(node.var.node2, VarGetNode)
+    assert isinstance(node.var.node1, BinaryOpNode)
+    assert node.var.node1.op.type == "DOT"
+    assert isinstance(node.var.node1.node2, VarGetNode)
+    assert isinstance(node.var.node1.node1, NumberNode)
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 12
 
 def test_return_node():
     lexer = Lexer("return: {1, 2}", "<test>")
