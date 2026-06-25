@@ -726,6 +726,331 @@ def test_variables():
     assert isinstance(result, Number)
     assert result.value == 6
 
+def test_class():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddPlus()} {
+    func: {_init(self, num)} {
+        attr: {self.num = num}
+    }
+    func: {exec(self, num)} {
+        return: {self.num + num}
+    }
+}
+const: {addplus = AddPlus(4)}
+attr: {addplus.num = 900}
+addplus.exec(8).length + addplus.exec(27)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 930
+
+def test_class_super():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddPlus()} {
+    func: {_init(self, num)} {
+        attr: {self.num = num}
+    }
+    func: {exec(self, num)} {
+        return: {self.num + num}
+    }
+}
+class: {AddMinus(AddPlus)} {
+    func: {exec(self, num)} {
+        return: {self.num - num}
+    }
+}
+const: {addplus = AddMinus(4)}
+attr: {addplus.num = 900}
+addplus.exec(8).length + addplus.exec(27)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+        assert error is None
+        line = node.pos_end.line + 1
+
+    assert isinstance(result, Number)
+    assert result.value == 876
+
+def test_class_super_attr():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddPlus()} {
+    func: {_init(self, num)} {
+        attr: {self.num = num}
+    }
+    func: {exec(self, num)} {
+        return: {self.num + num}
+    }
+}
+class: {AddMinus(AddPlus)} {
+    func: {exec(self, num)} {
+        return: {self.num - num}
+    }
+}
+class: {AddTimes(AddMinus)} {
+    func: {exec(self, num)} {
+        return: {self.num * num}
+    }
+}
+AddTimes(4).super(3).super
+AddTimes(4).super(3).super(9).exec(4)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    res = []
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+        assert error is None
+        res.append(result)
+        line = node.pos_end.line + 1
+
+    assert isinstance(res[3], ClassObject)
+    assert res[3].name == "AddPlus"
+    assert isinstance(res[4], Number)
+    assert res[4].value == 13
+
+def test_error_304_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddMinus(AddPlus)} {
+    func: {exec(self, num)} {
+        return: {self.num - num}
+    }
+}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 304
+    assert error.error_name == "SymbolGetError"
+    assert error.details == 'Variable "AddPlus" not defined'
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 17
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 23
+
+def test_error_313_inst_1():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''var: {AddPlus = 4}
+class: {AddMinus(AddPlus)} {
+    func: {exec(self, num)} {
+        return: {self.num - num}
+    }
+}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 313
+    assert error.error_name == "ClassError"
+    assert error.details == 'Class super must be a class object'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 17
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 23
+
+def test_error_313_inst_2():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddMinus()} {
+    func: {exec(num)} {
+        return: {self.num - num}
+    }
+}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 313
+    assert error.error_name == "ClassError"
+    assert error.details == 'First argument must be self'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 16
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 18
+
+def test_error_313_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddMinus()} {
+    func: {exec()} {
+        return: {self.num - num}
+    }
+}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 313
+    assert error.error_name == "ClassError"
+    assert error.details == 'First argument must be self'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 11
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 14
+
+def test_error_305_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''const: {AddMinus = 4}
+class: {AddMinus()} {}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 305
+    assert error.error_name == "ConstantError"
+    assert error.details == 'Constant "AddMinus" already defined'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 8
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 15
+
+def test_error_305_inst_5():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''const: {AddMinus = 4}
+cclass: {AddMinus()} {}''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 305
+    assert error.error_name == "ConstantError"
+    assert error.details == 'Constant "AddMinus" already defined'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 9
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 16
+
+def test_error_306_inst_6():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddMinus()} {
+    func: {_init(self, num)} {
+        return: {self.num - num}
+    }
+}
+AddMinus()''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert error.details == 'Function _init takes 2 arguments; 1 was given instead'
+    assert error.pos_start.line == 5
+    assert error.pos_start.column == 0
+    assert error.pos_end.line == 5
+    assert error.pos_end.column == 9
+
+def test_error_306_inst_6():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''class: {AddMinus()} {
+    func: {_init(self)} {
+        None
+    }
+}
+AddMinus().poopoo''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Object AddMinus does not have attribute "poopoo"'
+    assert error.pos_start.line == 5
+    assert error.pos_start.column == 11
+    assert error.pos_end.line == 5
+    assert error.pos_end.column == 16
 def test_empty_multi_line():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer('''if: {True} {} elif: {False} {} else: {}
@@ -869,11 +1194,81 @@ def test_error_312_inst_2():
     assert isinstance(error, Error)
     assert error.error_code == 312
     assert error.error_name == "AttributeError"
-    assert error.details == 'Object <Function print> does not have attribute "notreal"'
+    assert error.details == 'Function print does not have attribute "notreal"'
     assert error.pos_start.line == 0
     assert error.pos_start.column == 6
     assert error.pos_end.line == 0
     assert error.pos_end.column == 12
+
+def test_error_312_inst_3():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("attr: {a = 6}", "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Not a valid attribute'
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 7
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 7
+
+def test_error_312_inst_4():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("attr: {5.length = 6}", "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+
+        assert error is None
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Cannot edit attributes of type Number'
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 7
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 7
+
+def test_error_312_inst_5():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer("class: {H()} {}\nattr: {H().l += 6}", "<test>")
+    tokens, error = lexer.lex()
+    
+    for i in tokens:
+        parser = Parser(i, "<shell>", lexer)
+        node, error = parser.parse()
+
+        assert error is None
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 312
+    assert error.error_name == "AttributeError"
+    assert error.details == 'Object H does not have attribute "l"'
+    assert error.pos_start.line == 1
+    assert error.pos_start.column == 11
+    assert error.pos_end.line == 1
+    assert error.pos_end.column == 11
 
 def test_error_305_inst_1():
     GlobalSymbolTable = SymbolTable()
@@ -2255,7 +2650,7 @@ def test_error_306_inst_4():
     assert error.pos_end.column == 9
     assert "takes whole integer arguments" in error.details
 
-def test_error_306_inst_4():
+def test_error_306_inst_5():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer('until(1,2,3)', "<test>")
     tokens, error = lexer.lex()

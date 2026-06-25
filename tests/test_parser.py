@@ -381,7 +381,7 @@ def test_call_node():
     assert node.pos_end.column == 17
 
 def test_bin_op_attr_node():
-    lexer = Lexer("26.attr.sub()", "<test>")
+    lexer = Lexer("26.attrs.sub()", "<test>")
     tokens, error = lexer.lex()
     
     parser = Parser(tokens[0], "<test>", lexer)
@@ -399,7 +399,7 @@ def test_bin_op_attr_node():
     assert node.pos_start.line == 0
     assert node.pos_start.column == 0
     assert node.pos_end.line == 0
-    assert node.pos_end.column == 12
+    assert node.pos_end.column == 13
 
 def test_return_node():
     lexer = Lexer("return: {1, 2}", "<test>")
@@ -1125,3 +1125,46 @@ def test_continue_break_restart_node():
     assert node.pos_start.column == 0
     assert node.pos_end.line == 0
     assert node.pos_end.column == 4
+
+def test_var_def_node_attr():
+    lexer = Lexer("attr: {x.y += 5}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+    
+    assert isinstance(node, VarDefNode)
+    assert isinstance(node.name, BinaryOpNode)
+    assert node.name.node1.name.value == "x"
+    assert node.name.node2.name.value == "y"
+    assert node.name.op.type == "DOT"
+    assert isinstance(node.value, NumberNode)
+    assert node.value.tok.value == 5
+    assert node.eqtype.type == "PLUEQ"
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 14
+    assert node.key.value == "attr"
+
+def test_class_def_node():
+    lexer = Lexer("cclass: {Hello(Super)} {func: {_init(self, hello)} {attr: {self.hello = hello}}}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, ClassDefNode)
+    assert node.ident.value == "Hello"
+    assert node.super.value == "Super"
+    assert isinstance(node.then[0], FuncDefNode)
+    assert node.then[0].ident.value == "_init"
+    assert node.then[0].args[0].value == "self"
+    assert node.then[0].args[1].value == "hello"
+    assert isinstance(node.then[0].then[0], VarDefNode)
+    assert node.pos_end.line == 0
+    assert node.key.value == "cclass"

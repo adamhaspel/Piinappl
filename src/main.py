@@ -3,6 +3,8 @@
 ###########
 
 from stringcolor import *
+import random
+import math
 
 #############
 # CONSTANTS #
@@ -44,11 +46,11 @@ TT_KEY = "KEY"
 TT_IDENT = "IDENT"
 
 # Keywords
-KEYS = ["var", "const", "unpack", "and", "or", "nor", "xor", 'step', "nand", "xnor", "not", "if", "elif", "else", "in", "func", "cfunc", "return", "for", "while", "loop", "break", "continue", "restart"]
+KEYS = ["var", "const", "unpack", "and", "or", "nor", "xor", 'step', "nand", "xnor", "not", "if", "elif", "else", "in", "func", "cfunc", "return", "for", "while", "loop", "break", "continue", "restart", 'class', 'cclass', 'attr', 'is']
 
 # Characters
 DIGITS = "0123456789"
-LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 LETTERS_DIGITS = LETTERS + DIGITS
 
 ############
@@ -110,6 +112,8 @@ class Error():
             self.error_name = "LoopKeyError"
         if self.error_code == 312:
             self.error_name = "AttributeError"
+        if self.error_code == 313:
+            self.error_name = "ClassError"
         self.pos_start = pos_start
         self.pos_end = pos_end
         self.details = details
@@ -117,7 +121,6 @@ class Error():
         self.source = self.pos_start.source
         
     def __repr__(self):
-        # print(self.source.pos_start)
         if self.source != "<file>":
             error = []
             result = ""
@@ -257,9 +260,21 @@ class FuncDefNode():
         self.args = args
         self.then = then
         self.pos_end = Position(None, pos_end, pos_end, source)
+        self.inclass = False
 
     def __repr__(self):
         return f'{self.key} {self.ident}({str(self.args)}) -> {self.then}'
+
+class ClassDefNode():
+    def __init__(self, key, ident, _super, then, pos_end, source):
+        self.key = key
+        self.ident = ident
+        self.then = then
+        self.super = _super
+        self.pos_end = Position(None, pos_end, pos_end, source)
+
+    def __repr__(self):
+        return f'{self.key} {self.ident}({str(self.super)}) -> {self.then}'
     
 class ReturnNode():
     def __init__(self, key, nodes, pos_end,index, source):
@@ -488,6 +503,68 @@ class NoneType(Value):
     def __repr__(self):
         return "None"
 
+class ClassObject(Value):
+    def __init__(self, name, _super, value, lexer, attrof=None):
+        super().__init__(value, lexer)
+        self.bool = True
+        self.super = _super
+        self.name = name
+        self.attrof = attrof
+
+    def attr(self):
+        self.coreattributes.update({"name":String(self.name, self.lexer), "super":self.super})
+        res = {}
+        for i in self.attributes:
+            res.update({String(i, self.lexer):self.attributes[i]})
+        for i in self.coreattributes:
+            res.update({String(i, self.lexer):self.coreattributes[i]})
+        res.update({String("attrs", self.lexer):res})
+        self.coreattributes.update({"attrs": Dictionary(res, self.lexer)})
+
+    def lt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+        
+    def gt(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+
+    def gte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+
+    def lte(self, node, other):
+        return None, Error(301, node.pos_start, node.pos_end, f'Unsupported operation between {self.__class__.__name__} and {other.__class__.__name__}', self.lexer.text.split("\n"))
+
+    def __repr__(self):
+        return f'<Class {self.name}>'
+
+class ClassInstance(ClassObject):
+    def __init__(self, name, _super, value, lexer, attrof=None):
+        super().__init__(name, _super, value, lexer, attrof)
+        self.id = random.randint(100000, 999999)
+        if self.super: 
+            self.value = _super.value + self.value
+        self.coreattributes.update({"name":String(self.name, self.lexer), "super":self.super})
+        res = {}
+        for i in self.value:
+            self.attributes.update({i.name:i})
+        for i in self.attributes:
+            res.update({String(i, self.lexer):self.attributes[i]})
+        for i in self.coreattributes:
+            res.update({String(i, self.lexer):self.coreattributes[i]})
+        res.update({String("attrs", self.lexer):res})
+        self.coreattributes.update({"attrs": Dictionary(res, self.lexer)})
+    
+    def attr(self):
+        pass
+
+    def eq(self, node, other):
+        if self.__class__.__name__ == other.__class__.__name__:
+            return Boolean(self.id == other.id, self.lexer), None
+        else:
+            return Boolean(0, self.lexer), None
+
+    def __repr__(self):
+        return f'<ClassInstance {self.name} at 0x{self.id}>'
+
 class Function(Value):
     def __init__(self, name, args, value, lexer, attrof=None):
         super().__init__(value, lexer)
@@ -499,7 +576,7 @@ class Function(Value):
     def attr(self):
         strargs = []
         for i in self.args:
-            strargs.append(String(i, self.lexer))
+            strargs.append(String(i.value, self.lexer))
         self.coreattributes.update({"name":String(self.name, self.lexer), "args":List(strargs, self.lexer)})
         res = {}
         for i in self.attributes:
@@ -892,7 +969,7 @@ class Number(Value):
 class SymbolTable():
     def __init__(self, parent=None):
         self.symbols = {}
-        self.constants = {"None": NoneType(None), "True": Boolean(1, None), "False": Boolean(0, None), "print": Function('print', ["value"], None, None), "until": Function("until", ["value1", "value2"], None, None)}
+        self.constants = {"None": NoneType(None), "True": Boolean(1, None), "False": Boolean(0, None), "print": Function('print', [Token(TT_IDENT, "value", None, None, None)], None, None), "until": Function("until", [Token(TT_IDENT, "value1", None, None, None), Token(TT_IDENT, "value2", None, None, None)], None, None)}
         self.parent = parent
         
     def get(self, name):
@@ -1161,7 +1238,7 @@ class Lexer():
                             if dot == 2:
                                 line.append(Token(TT_NUM, float(num[:-1]), linepos, pos_start, pos-1))
                             elif dot == 1:
-                                line.append(Token(TT_NUM, int(num[:-1]), linepos, pos_start, pos-1))
+                                line.append(Token(TT_NUM, int(num[:-1]), linepos, pos_start, pos-2))
                                 line.append(Token(TT_DOT, None, linepos, pos, pos))
                         elif dot == 1:
                             line.append(Token(TT_NUM, float(num), linepos, pos_start, pos-1))
@@ -1216,8 +1293,8 @@ class Parser():
         return node, None
     
     def expr(self):
-        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const", 'if', 'func', 'cfunc', 'return', "unpack", "loop", "while", "for", 'break', 'continue', 'restart']:
-            if self.current_tok.value in ["var", "const"]:
+        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const", 'if', 'func', 'cfunc', 'return', "unpack", "loop", "while", "for", 'break', 'continue', 'restart', 'class', 'cclass', 'attr']:
+            if self.current_tok.value in ["var", "const", 'attr']:
                 node, error = self.var(self.current_tok)
             if self.current_tok.value == "unpack":
                 node, error = self.unpack(self.current_tok)
@@ -1229,6 +1306,8 @@ class Parser():
                 node, error = self.returnexpr(self.current_tok)
             elif self.current_tok.value in ["loop", "while"]:
                 node, error = self.loopexpr(self.current_tok)
+            elif self.current_tok.value in ["class", "cclass"]:
+                node, error = self.classexpr(self.current_tok)
             elif self.current_tok.value == "for":
                 node, error = self.forexpr(self.current_tok)
             elif self.current_tok.value in ["break", 'continue', 'restart']:
@@ -1298,10 +1377,15 @@ class Parser():
             return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
         pos_start = self.current_tok.pos_start
         self.advance()
-        if self.current_tok.type != "IDENT":
-            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: "IDENT"', self.lexer.text.split("\n"))
-        name = self.current_tok
-        self.advance()
+        if key.value == 'attr':
+            name, error = self.list_call()
+            if error:
+                return None, error
+        else:
+            if self.current_tok.type != "IDENT":
+                return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: "IDENT"', self.lexer.text.split("\n"))
+            name = self.current_tok
+            self.advance()
         if self.current_tok.type not in ["EQ", "PLUEQ", "MINEQ", "MULEQ", "DIVEQ", "EXPEQ", "MODEQ"]:
             return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: "="', self.lexer.text.split("\n"))
         eqtype = self.current_tok
@@ -1485,6 +1569,66 @@ class Parser():
         if finished == False:
             return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
         return FuncDefNode(tok, ident, args, then, line, self.source), None
+
+    def classexpr(self, tok):
+        tokens, error = Lexer(self.lexer.text, self.index).lex()
+        if error:
+            return None, error
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: ":"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        self.advance()
+        if self.current_tok.type != "IDENT":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: IDENT', self.lexer.text.split("\n"))
+        ident = self.current_tok
+        self.advance()
+        if self.current_tok.type != "LPAREN":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "("', self.lexer.text.split("\n"))
+        pos_start_2 = self.current_tok.pos_start
+        self.advance()
+        _super = None
+        if self.current_tok.type == "IDENT":
+            _super = self.current_tok
+            self.advance()
+        if self.current_tok.type != "RPAREN":
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start_2, self.source), Position(self.index, self.current_tok.line, pos_start_2, self.source), 'Unresolved grouping: "("', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "RBRACE":
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        toks = self.tokens
+        if self.current_tok.type == "RBRACE":
+            finished = True
+            self.advance()
+        elif self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error
+            then.append(node)
+            self.tokens = toks
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line
+        if finished == False:
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+        return ClassDefNode(tok, ident, _super, then, line, self.source), None
     
     def loopexpr(self, tok):
         tokens, error = Lexer(self.lexer.text, self.index).lex()
@@ -1654,17 +1798,17 @@ class Parser():
             # Numbers
             num = self.current_tok
             self.advance()
-            return NumberNode(num, self.index, self.source), None
+            node = NumberNode(num, self.index, self.source)
         elif self.current_tok.type == "IDENT":
             # Variables
             var = self.current_tok
             self.advance()
-            return VarGetNode(var, self.index, self.source), None
+            node = VarGetNode(var, self.index, self.source)
         elif self.current_tok.type == "STR":
             # Strings
             string = self.current_tok
             self.advance()
-            return StringNode(string, self.index, self.source), None
+            node = StringNode(string, self.index, self.source)
         elif self.current_tok.type == "LSQUARE":
             # Lists
             lsquare = self.current_tok
@@ -1688,7 +1832,7 @@ class Parser():
                         self.advance()
                         break
                     self.advance()
-            return ListNode(lsquare, contents, rsquare, self.index, self.source), None
+            node = ListNode(lsquare, contents, rsquare, self.index, self.source)
         elif self.current_tok.type == "LBRACE":
             # Dicts
             lsquare = self.current_tok
@@ -1718,7 +1862,7 @@ class Parser():
                         self.advance()
                         break
                     self.advance()
-            return DictNode(lsquare, contents, rsquare, self.index, self.source), None
+            node = DictNode(lsquare, contents, rsquare, self.index, self.source)
         elif self.current_tok.type == "LPAREN":
             # Parentheses
             lparen = self.current_tok
@@ -1734,8 +1878,7 @@ class Parser():
                 return None, Error(201, Position(self.index, lparen.line, lparen.pos_start, self.source), Position(self.index, lparen.line, lparen.pos_end, self.source), 'Unresolved grouping: "("', self.lexer.text.split("\n"))
             node.pos_start = Position(self.index, lparen.line, lparen.pos_start, self.source)
             node.pos_end = Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source)
-            self.advance() 
-            return node, None
+            self.advance()
         elif (self.current_tok.type in ["PLUS", "MINUS"]) or (self.current_tok.type == "KEY" and self.current_tok.value == "not"):
             # Unary Operations
             op = self.current_tok
@@ -1743,11 +1886,12 @@ class Parser():
             node, error = self.list_call()
             if error:
                 return None, error
-            return UnaryOpNode(op, node, self.index, self.source), None
+            node = UnaryOpNode(op, node, self.index, self.source)
         else:
             return None, Error(202, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Unexpected token: "{self.current_tok}"', self.lexer.text.split("\n"))
+        return node, None
 
-    def attr(self):
+    def attrlow(self):
         node1, error = self.num()
         if error:
             return None, error
@@ -1755,10 +1899,10 @@ class Parser():
         return self.binaryoperation(node1, ["DOT"], self.num)
 
     def list_call(self):
-        _object, error = self.attr()
+        _object, error = self.num()
         if error:
             return None, error
-        while self.current_tok.type in ["LSQUARE", "LPAREN"]:
+        while self.current_tok.type in ["LSQUARE", "LPAREN", 'DOT']:
             if self.current_tok.type == "LSQUARE":
                 lsquare = self.current_tok
                 self.advance()
@@ -1769,7 +1913,7 @@ class Parser():
                 rsquare = self.current_tok
                 self.advance()
                 _object = ListCallNode(_object, call, rsquare, self.index, self.source)
-            if self.current_tok.type == "LPAREN":
+            elif self.current_tok.type == "LPAREN":
                 lsquare = self.current_tok
                 self.advance()
                 args = []
@@ -1793,6 +1937,10 @@ class Parser():
                             break
                         self.advance()
                     _object = CallNode(_object, args, pos_end, self.index, self.source)
+            else:
+                _object, error = self.binaryoperation(_object, ["DOT"], self.num) 
+                if error:
+                    return None, error      
         return _object, None
 
     def exp(self):
@@ -1830,7 +1978,7 @@ class Parser():
         if error:
             return None, error
         
-        while self.current_tok.type == "KEY" and self.current_tok.value in ["and", "or", "xor", "nand", "nor", "xnor"]:
+        while self.current_tok.type == "KEY" and self.current_tok.value in ["and", "or", "xor", "nand", "nor", "xnor", 'in']:
             op = self.current_tok
         
             self.advance()
@@ -1941,7 +2089,7 @@ class Interpreter():
     def visit_WhileNode(self, node):
         cond, error = self.visit(node.cond)
         if error:
-            return None
+            return None, error
         
         while cond.bool:
             for j in node.then:
@@ -1966,7 +2114,7 @@ class Interpreter():
     def visit_LoopNode(self, node):
         loopcnt, error = self.visit(node.loopcnt)
         if error:
-            return None
+            return None, error
         if not isinstance(loopcnt, Number):
             return None, Error(310, node.loopcnt.pos_start, node.loopcnt.pos_end, f'Loop only takes number loops', self.lexer.text.split("\n"))
         if not loopcnt.value % 1 == 0:
@@ -2022,12 +2170,48 @@ class Interpreter():
                     return None, error
                 self.symboltable.set(node.name.value, new_value)
                 value = new_value
-        else:
+        elif node.key.value == "const":
             existing = self.symboltable.get(node.name)
             if existing != None or node.eqtype.type != "EQ":
                 return None, Error(305, Position(self.index, node.name.line, node.name.pos_start, self.lexer.source), Position(self.index, node.name.line, node.name.pos_end, self.lexer.source), f'Constant "{node.name.value}" already defined', self.lexer.text.split("\n"))
             self.symboltable.set_constant(node.name.value, value)
-            return value, None
+        else:
+            if not isinstance(node.name, BinaryOpNode):
+                return None, Error(312, node.name.pos_start,node.name.pos_end, f'Not a valid attribute', self.lexer.text.split("\n"))
+            if node.name.op.type != "DOT":
+                return None, Error(312, node.name.pos_start,node.name.pos_end, f'Not a valid attribute', self.lexer.text.split("\n"))
+            
+            parent, error = self.visit(node.name.node1)
+            if error:
+                return None, error
+            if not isinstance(node.name.node2, VarGetNode):
+                return None, Error(312, node.name.node2.pos_start,node.name.node2.pos_end, "Attribute must be identifier", self.lexer.text.split("\n"))
+            if not isinstance(parent, ClassInstance):
+                return None, Error(312, node.name.node1.pos_start,node.name.node1.pos_end, f"Cannot edit attributes of type {parent.__class__.__name__}", self.lexer.text.split("\n"))
+            
+            if node.eqtype.type == "EQ":
+                parent.attributes.update({node.name.node2.name.value:value})
+            else:
+                existing = parent.attributes.get(node.name.node2.name.value, None)
+                if existing is None:
+                    return None, Error(312, node.name.node2.pos_start,  node.name.node2.pos_end, f'Object {parent.name} does not have attribute "{node.name.node2.name.value}"', self.lexer.text.split("\n"))
+                existing.lexer = self.lexer
+                if node.eqtype.type == "PLUEQ":
+                    new_value, error = existing.add(node, value)
+                elif node.eqtype.type == "MINEQ":
+                    new_value, error = existing.sub(node, value)
+                elif node.eqtype.type == "MULEQ":
+                    new_value, error = existing.mul(node, value)
+                elif node.eqtype.type == "DIVEQ":
+                    new_value, error = existing.div(node, value)
+                elif node.eqtype.type == "EXPEQ":
+                    new_value, error = existing.exp(node, value)
+                elif node.eqtype.type == "MODEQ":
+                    new_value, error = existing.mod(node, value)
+                if error:
+                    return None, error
+                parent.attributes.update({node.name.node2.name.value:new_value})
+                value = new_value
         return value, None
     
     def visit_VarGetNode(self, node):
@@ -2038,8 +2222,44 @@ class Interpreter():
         return value, None
     
     def visit_FuncDefNode(self, node):
-        value = Function(node.ident, node.args, node.then, self.lexer)
-        if node.key.value == "func":
+        value = Function(node.ident.value, node.args, node.then, self.lexer)
+        if not node.inclass:
+            if node.key.value == "func":
+                if node.ident.value in self.symboltable.constants:
+                    return None, Error(305, Position(self.index, node.ident.line, node.ident.pos_start, self.lexer.source), Position(self.index, node.ident.line, node.ident.pos_end, self.lexer.source), f'Constant "{node.ident.value}" already defined', self.lexer.text.split("\n"))
+                self.symboltable.set(node.ident.value, value)
+            else:
+                existing = self.symboltable.get(node.ident)
+                if existing != None:
+                    return None, Error(305, Position(self.index, node.ident.line, node.ident.pos_start, self.lexer.source), Position(self.index, node.ident.line, node.ident.pos_end, self.lexer.source), f'Constant "{node.ident.value}" already defined', self.lexer.text.split("\n"))
+                self.symboltable.set_constant(node.ident.value, value)
+        return value, None
+
+    def visit_ClassDefNode(self, node):
+        _super = node.super
+        if _super:
+            _super = self.symboltable.get(node.super)
+            if not _super:
+                return None, Error(304, Position(self.index, node.super.line, node.super.pos_start, self.lexer.source), Position(self.index, node.super.line, node.super.pos_end, self.lexer.source), f'Variable "{node.super.value}" not defined', self.lexer.text.split("\n"))
+            if not isinstance(_super, ClassObject):
+                return None, Error(313, Position(self.index, node.super.line, node.super.pos_start, self.lexer.source), Position(self.index, node.super.line, node.super.pos_end, self.lexer.source), f'Class super must be a class object', self.lexer.text.split("\n"))
+        then = []
+        for i in node.then:
+            if not isinstance(i, FuncDefNode):
+                continue
+            i.inclass = True
+            func, error = self.visit(i)
+            if error:
+                return None, error
+            if len(func.args) == 0:
+                return None, Error(313, Position(self.index, i.ident.line, i.ident.pos_start, self.source), Position(self.index, i.ident.line, i.ident.pos_end, self.lexer.source), f'First argument must be self', self.lexer.text.split("\n"))
+            if func.args[0].value != "self":
+                return None, Error(313, Position(self.index, func.args[0].line, func.args[0].pos_start, self.lexer.source), Position(self.index, func.args[0].line, func.args[0].pos_end, self.lexer.source), f'First argument must be self', self.lexer.text.split("\n"))
+            then.append(func)
+        value = ClassObject(node.ident.value, _super, then, self.lexer)
+        for i in value.value:
+            i.attrof = value
+        if node.key.value == "class":
             if node.ident.value in self.symboltable.constants:
                 return None, Error(305, Position(self.index, node.ident.line, node.ident.pos_start, self.lexer.source), Position(self.index, node.ident.line, node.ident.pos_end, self.lexer.source), f'Constant "{node.ident.value}" already defined', self.lexer.text.split("\n"))
             self.symboltable.set(node.ident.value, value)
@@ -2055,91 +2275,74 @@ class Interpreter():
         if error:
             return None, error
         node.func = func
-        if func.name == "until":
-            args = []
-            for i in node.args:
-                res, error = self.visit(i)
-                if error:
-                    return None, error
-                args.append(res)
-            if len(args) not in [1, 2]:
+        if isinstance(func, Function):
+            if func.name == "until":
+                args = []
+                for i in node.args:
+                    res, error = self.visit(i)
+                    if error:
+                        return None, error
+                    args.append(res)
+                if len(args) not in [1, 2]:
+                    waswere = "were"
+                    if len(args) == 1:
+                        waswere = "was"
+                    s = "s"
+                    if len(func.args) == 1:
+                        s = ""
+                    return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
+                value = []
+                try:
+                    if len(args) > 1:
+                        for i in range(args[0].value, args[1].value):
+                            value.append(Number(i, self.lexer))
+                    else:
+                        for i in range(args[0].value):
+                            value.append(Number(i, self.lexer))
+                except:
+                    return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name} takes whole integer arguments', self.lexer.text.split("\n"))
+                return List(value, self.lexer), None
+            lexer = Lexer(self.lexer.text, self.index, node)
+            tokens, error = lexer.lex()
+            symboltable = SymbolTable(self.symboltable)
+            if func.attrof:
+                node.args = [''] + node.args
+            if len(node.args) != (len(func.args)):
                 waswere = "were"
-                if len(args) == 1:
+                if len(node.args) == 1:
                     waswere = "was"
                 s = "s"
                 if len(func.args) == 1:
                     s = ""
                 return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
-            value = []
-            try:
-                if len(args) > 1:
-                    for i in range(args[0].value, args[1].value):
-                        value.append(Number(i, self.lexer))
-                else:
-                    for i in range(args[0].value):
-                        value.append(Number(i, self.lexer))
-            except:
-                return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name.value} takes whole integer arguments', self.lexer.text.split("\n"))
-            return List(value, self.lexer), None
-        if not isinstance(func, Function):
-            return None, Error(306, node.pos_start, node.pos_end, f'Type {func.__class__.__name__} is not callable', self.lexer.text.split("\n"))
-        lexer = Lexer(self.lexer.text, self.index, node)
-        tokens, error = lexer.lex()
-        symboltable = SymbolTable(self.symboltable)
-        if func.attrof:
-            node.args = [''] + node.args
-        if len(node.args) != (len(func.args)):
-            waswere = "were"
-            if len(node.args) == 1:
-                waswere = "was"
-            s = "s"
-            if len(func.args) == 1:
-                s = ""
-            return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
-        if func.attrof:
-            node.args = node.args[1:]
-            func.args = func.args[1:]
-            symboltable.set("self", func.attrof)  
-        if func.name == "print":
-            res, error = self.visit(node.args[0])
-            if error:
-                return None, error
-            print(res)
-            return None, None
-        for i in node.args:
-            arg, error = self.visit(i)
-            if error:
-                return None, error
-            symboltable.set(func.args[node.args.index(i)].value, arg)     
-        interpreter = Interpreter(None, lexer, self.index, symboltable, node)
-        for i in func.value:
-            if not i:
-                continue
-            if isinstance(i, ReturnNode):
-                if i.nodes == []:
-                    return NoneType(self.lexer), None
-                elif len(i.nodes) == 1:
-                    res, error = interpreter.visit(i.nodes[0])
-                    if error:
-                        return None, error
-                    return res, None
-                else:
-                    result = []
-                    for j in i.nodes:
-                        res, error = interpreter.visit(j)
-                        if error:
-                            return None, error
-                        result.append(res)
-                    return List(result, self.lexer), None
-            res, error = interpreter.visit(i)
-            if error:
-                if error.error_code == 307:
-                    i = res
+            if func.attrof:
+                node.args = node.args[1:]
+                func.args = func.args[1:]
+                symboltable.set("self", func.attrof)  
+            if func.name == "print":
+                res, error = self.visit(node.args[0])
+                if error:
+                    return None, error
+                print(res)
+                return None, None
+            for i in node.args:
+                arg, error = self.visit(i)
+                if error:
+                    return None, error
+                symboltable.set(func.args[node.args.index(i)].value, arg)     
+            if func.attrof:
+                func.args = ['self'] + func.args
+            interpreter = Interpreter(None, lexer, self.index, symboltable, node)
+            for i in func.value:
+                if not i:
+                    continue
+                if isinstance(i, ReturnNode):
                     if i.nodes == []:
                         return NoneType(self.lexer), None
                     elif len(i.nodes) == 1:
                         res, error = interpreter.visit(i.nodes[0])
                         if error:
+                            error.source = node
                             return None, error
                         return res, None
                     else:
@@ -2147,15 +2350,116 @@ class Interpreter():
                         for j in i.nodes:
                             res, error = interpreter.visit(j)
                             if error:
+                                error.source = node
                                 return None, error
                             result.append(res)
                         return List(result, self.lexer), None
-                else:
-                    return None, error
-        if func.name == "index" and isinstance(func.attrof, Dictionary):
-            return None, Error(309, node.args[0].pos_start, node.args[0].pos_end, f"Item not in dictionary values", self.lexer.text.split("\n"))
-        if func.name == "index" and isinstance(func.attrof, List):
-            return None, Error(309, node.args[0].pos_start, node.args[0].pos_end, f"Item not in list", self.lexer.text.split("\n"))
+                res, error = interpreter.visit(i)
+                if error:
+                    if error.error_code == 307:
+                        i = res
+                        if i.nodes == []:
+                            return NoneType(self.lexer), None
+                        elif len(i.nodes) == 1:
+                            res, error = interpreter.visit(i.nodes[0])
+                            if error:
+                                error.source = node
+                                return None, error
+                            return res, None
+                        else:
+                            result = []
+                            for j in i.nodes:
+                                res, error = interpreter.visit(j)
+                                if error:
+                                    error.source = node
+                                    return None, error
+                                result.append(res)
+                            return List(result, self.lexer), None
+                    else:
+                        error.source = node
+                        return None, error
+            if func.name == "index" and isinstance(func.attrof, Dictionary):
+                return None, Error(309, node.args[0].pos_start, node.args[0].pos_end, f"Item not in dictionary values", self.lexer.text.split("\n"))
+            if func.name == "index" and isinstance(func.attrof, List):
+                return None, Error(309, node.args[0].pos_start, node.args[0].pos_end, f"Item not in list", self.lexer.text.split("\n"))
+        elif isinstance(func, ClassObject):
+            _init = None
+            _class = ClassInstance(func.name, func.super, func.value, func.lexer, func.attrof)
+            _class.attr()
+            for i in _class.value:
+                i.attrof = _class
+                if i.name == "_init":
+                    _init = i
+            if _init:
+                func = _init
+                lexer = Lexer(self.lexer.text, self.index, node)
+                tokens, error = lexer.lex()
+                symboltable = SymbolTable(self.symboltable)
+                node.args = [_class] + node.args
+                if len(node.args) != (len(func.args)):
+                    waswere = "were"
+                    if len(node.args) == 1:
+                        waswere = "was"
+                    s = "s"
+                    if len(func.args) == 1:
+                        s = ""
+                    return None, Error(306, node.pos_start, node.pos_end, f'Function {func.name} takes {len(func.args)} argument{s}; {len(node.args)} {waswere} given instead', self.lexer.text.split("\n"))
+                node.args = node.args[1:]
+                symboltable.set("self", _class)  
+                for i in node.args:
+                    arg, error = self.visit(i)
+                    if error:
+                        return None, error
+                    symboltable.set(func.args[1:][node.args.index(i)].value, arg)     
+                interpreter = Interpreter(None, lexer, self.index, symboltable, node)
+                for i in func.value:
+                    if not i:
+                        continue
+                    if isinstance(i, ReturnNode):
+                        if i.nodes == []:
+                            return NoneType(self.lexer), None
+                        elif len(i.nodes) == 1:
+                            res, error = interpreter.visit(i.nodes[0])
+                            if error:
+                                error.source = node
+                                return None, error
+                            return res, None
+                        else:
+                            result = []
+                            for j in i.nodes:
+                                res, error = interpreter.visit(j)
+                                if error:
+                                    error.source = node
+                                    return None, error
+                                result.append(res)
+                            return List(result, self.lexer), None
+                    res, error = interpreter.visit(i)
+                    if error:
+                        if error.error_code == 307:
+                            i = res
+                            if i.nodes == []:
+                                return NoneType(self.lexer), None
+                            elif len(i.nodes) == 1:
+                                res, error = interpreter.visit(i.nodes[0])
+                                if error:
+                                    error.source = node
+                                    return None, error
+                                return res, None
+                            else:
+                                result = []
+                                for j in i.nodes:
+                                    res, error = interpreter.visit(j)
+                                    if error:
+                                        error.source = node
+                                        return None, error
+                                    result.append(res)
+                                return List(result, self.lexer), None
+                        else:
+                            error.source = node
+                            return None, error
+            return _class, None
+        else:
+            return None, Error(306, node.pos_start, node.pos_end, f'Type {func.__class__.__name__} is not callable', self.lexer.text.split("\n"))
         return None, None
     
     def visit_UnpackNode(self, node):
@@ -2292,7 +2596,9 @@ class Interpreter():
                 attr = node1.attributes.get(node.node2.name.value, None)
                 if not attr:
                     if isinstance(node1, Function):
-                        return None, Error(312, node.node2.pos_start,node.node2.pos_end, f'Object {node1} does not have attribute "{node.node2.name.value}"', self.lexer.text.split("\n"))
+                        return None, Error(312, node.node2.pos_start,node.node2.pos_end, f'Function {node1.name} does not have attribute "{node.node2.name.value}"', self.lexer.text.split("\n"))
+                    if isinstance(node1, ClassInstance):
+                        return None, Error(312, node.node2.pos_start,node.node2.pos_end, f'Object {node1.name} does not have attribute "{node.node2.name.value}"', self.lexer.text.split("\n"))
                     return None, Error(312, node.node2.pos_start,node.node2.pos_end, f'Object {node1.__class__.__name__} does not have attribute "{node.node2.name.value}"', self.lexer.text.split("\n"))
             return attr, None
         elif node.op.type == "KEY":

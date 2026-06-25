@@ -118,7 +118,7 @@ def test_lexer_produces_tokens_set_4():
     ]
 
 def test_lexer_produces_tokens_set_5():
-    lexer = Lexer("for while loop break continue restart step .", "<test>")
+    lexer = Lexer("for while loop break continue restart step . class cclass attr", "<test>")
     tokens, error = lexer.lex()
 
     assert error is None
@@ -132,7 +132,10 @@ def test_lexer_produces_tokens_set_5():
         ("KEY", "restart", 0, 30, 36),
         ("KEY", "step", 0, 38,41),
         ("DOT", None, 0, 43, 43),
-        ("EOF", None, 0, 44, 44)
+        ("KEY", "class", 0, 45, 49),
+        ("KEY", "cclass", 0, 51, 56),
+        ("KEY", "attr", 0, 58,61),
+        ("EOF", None, 0, 62, 62)
     ]
 
 def test_complex_numbers():
