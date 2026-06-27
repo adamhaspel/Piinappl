@@ -1506,6 +1506,121 @@ def test_error_306_inst_14():
     assert error.pos_end.line == 0
     assert error.pos_end.column == 14
     
+def test_error_306_inst_15():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''func: {h(a, b, c)} {
+}
+h(4, c = 8, 9)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert error.details == 'Positional argument given after keyword argument'
+    assert error.pos_start.line == 2
+    assert error.pos_start.column == 12
+    assert error.pos_end.line == 2
+    assert error.pos_end.column == 12
+    
+def test_error_306_inst_16():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''func: {h(a, b, c=None)} {
+}
+h(4, d = 8)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is not None
+    assert isinstance(error, Error)
+    assert error.error_code == 306
+    assert error.error_name == "CallError"
+    assert error.details == 'Keyword argument not in function'
+    assert error.pos_start.line == 2
+    assert error.pos_start.column == 5
+    assert error.pos_end.line == 2
+    assert error.pos_end.column == 9
+    
+def test_kwargs():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''func: {yay(a, b)} {
+        return: {a / b}
+    }
+yay(b = 4, a = 3)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == .75
+    
+def test_kwargs_and_pos():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''func: {yay(a, b)} {
+        return: {a / b}
+    }
+yay(8, b = 4)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == 2
+    
+def test_kwargs_canceling():
+    GlobalSymbolTable = SymbolTable()
+    lexer = Lexer('''func: {yay(a, b)} {
+        return: {a / b}
+    }
+yay(8, b = 4, b = 6)''', "<test>")
+    tokens, error = lexer.lex()
+    
+    line = 0
+    while line < len(tokens):
+        parser = Parser(tokens[line], "<shell>", lexer)
+        node, error = parser.parse()
+        
+        interpreter = Interpreter(node, lexer, "<shell>", GlobalSymbolTable)
+        result, error = interpreter.visit(node)
+        line = node.pos_end.line + 1
+
+    assert error is None
+    assert isinstance(result, Number)
+    assert result.value == (8/6)
+
 def test_empty_multi_line():
     GlobalSymbolTable = SymbolTable()
     lexer = Lexer('''if: {True} {} elif: {False} {} else: {}

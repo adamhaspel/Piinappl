@@ -681,10 +681,19 @@ class Function(Value):
                 return None, error
             print(res)
             return None, None
+        kwarg = False
         for i in node.args:
-            arg, error = _interpreter.visit(i)
-            if error:
-                return None, error
+            if isinstance(i, list):
+                kwarg = True
+                arg, error = _interpreter.visit(i[1])
+                if error:
+                    return None, error
+            else:
+                if kwarg:
+                    return None, Error(306, i.pos_start, i.pos_end, f'Positional argument given after keyword argument', self.lexer.text.split("\n"))
+                arg, error = _interpreter.visit(i)
+                if error:
+                    return None, error
             if self.conditions[node.args.index(i)]:
                 cond, error = _interpreter.visit(self.conditions[node.args.index(i)][1])
                 if error:
@@ -726,7 +735,12 @@ class Function(Value):
                     if isinstance(cond, ClassObject):
                         cond = cond.name
                     return None, Error(306, i.pos_start, i.pos_end, f"Argument does not satisfy condition: {self.args[node.args.index(i)].value} {rep} {cond}", self.lexer.text.split("\n"))
-            symboltable.set(self.args[node.args.index(i)].value, arg) 
+            if not kwarg:
+                symboltable.set(self.args[node.args.index(i)].value, arg)
+            else:
+                if i[0].value not in [t.value for t in self.args]:
+                    return None, Error(306, Position(node.pos_start.index, i[0].line, i[0].pos_start, self.lexer.source), i[1].pos_end, f'Keyword argument not in function', self.lexer.text.split("\n"))
+                symboltable.set(i[0].value, arg)
         for i in self.args[len(node.args):]:
             if self.conditions[self.args.index(i)]:
                 cond, error = _interpreter.visit(self.conditions[self.args.index(i)][1])
@@ -1483,7 +1497,7 @@ class Lexer():
                     # Create Identifiers and Keywords
                     ide = ""
                     pos_start = pos
-                    while j in LETTERS_DIGITS + "_-":
+                    while j in LETTERS_DIGITS + "_":
                         ide += j
                         pos += 1
                         j = i[pos]
@@ -2178,11 +2192,30 @@ class Parser():
                     self.advance()
                     _object = CallNode(_object, args, pos_end, self.index, self.source)
                 else:
+                    kwargs = []
                     while self.current_tok.type != "RPAREN":
+                        kwarg = None
+                        if self.current_tok.type == "IDENT":
+                            kwarg = self.current_tok
+                            self.advance()
+                            if self.current_tok.type == "EQ":
+                                self.advance()
+                                if kwarg.value in kwargs:
+                                    for i in args:
+                                        if isinstance(i, list):
+                                            if i[0].value == kwarg.value:
+                                                args.pop(args.index(i))
+                                kwargs.append(kwarg.value)
+                            else:
+                                kwarg = None
+                                self.current_tok = self.tokens[self.tokens.index(self.current_tok) - 1]
                         node, error = self.andor()
                         if error:
                             return None, error
-                        args.append(node)
+                        if kwarg:
+                            args.append([kwarg, node])
+                        else:
+                            args.append(node)
                         if self.current_tok.type != "COMMA" and self.current_tok.type != "RPAREN":
                             if self.current_tok.type == "EOF":
                                 return None, Error(201, Position(self.index, lsquare.line, lsquare.pos_start, self.source), Position(self.index, lsquare.line, lsquare.pos_end, self.source), 'Unresolved grouping: "("', self.lexer.text.split("\n"))
