@@ -3,7 +3,6 @@ from stringcolor import *
 import sys
 import pytest
 
-GlobalSymbolTable = SymbolTable()
 green = "rgb(190, 230, 130)"
 red = "rgb(255, 100, 100)"
 
@@ -34,7 +33,7 @@ if len(sys.argv) > 1:
         text = f.read()
         lexer = Lexer(text, sys.argv[1])
         tokens, error = lexer.lex()
-        GlobalSymbolTable = SymbolTable()
+        GlobalSymbolTable = SymbolTable(lexer)
 
         if error:
             print(error)
@@ -89,6 +88,7 @@ while True:
 
         lexer = Lexer(text, "<shell>")
         tokens, error = lexer.lex()
+        GlobalSymbolTable = SymbolTable(lexer)
 
         if error:
             if error.pos_start.line == line:

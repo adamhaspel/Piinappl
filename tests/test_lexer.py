@@ -137,6 +137,22 @@ def test_lexer_produces_tokens_set_5():
         ("KEY", "attr", 0, 58,61),
         ("EOF", None, 0, 62, 62)
     ]
+    
+def test_lexer_produces_tokens_set_6():
+    lexer = Lexer("try but then raise check as", "<test>")
+    tokens, error = lexer.lex()
+
+    assert error is None
+
+    assert [(t.type, t.value, t.line, t.pos_start, t.pos_end) for t in tokens[0]] == [
+        ("KEY", "try", 0, 0, 2),
+        ("KEY", "but", 0, 4, 6),
+        ("KEY", "then", 0, 8, 11),
+        ("KEY", "raise", 0, 13, 17),
+        ("KEY", "check", 0, 19, 23),
+        ("KEY", "as", 0, 25,26),
+        ("EOF", None, 0, 27, 27)
+    ]
 
 def test_complex_numbers():
     lexer = Lexer("3.14 + 271", "<test>")

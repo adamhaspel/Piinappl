@@ -290,7 +290,7 @@ def test_error_202_inst_1():
     assert error.pos_end.column == 4
     assert error.details == 'Unexpected token: "MUL"'
     
-def test_error_203():
+def test_error_203_inst_1():
     lexer = Lexer("1 + (2 * 3) 4 + 4", "<test>")
     tokens, error = lexer.lex()
     
@@ -1168,3 +1168,134 @@ def test_class_def_node():
     assert isinstance(node.then[0].then[0], VarDefNode)
     assert node.pos_end.line == 0
     assert node.key.value == "cclass"
+
+def test_try_but_node_1():
+    lexer = Lexer("try: {4} but: {RuntimeError as e} {2} but: {Error as e} {1} else: {5} then: {7}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, TryButNode)
+    assert isinstance(node.excepts, ButNode)
+    assert isinstance(node.excepts.cond, CallNode)
+    assert node.excepts.cond.var.name.value == "RuntimeError"
+    assert isinstance(node.excepts.excepts, ButNode)
+    assert isinstance(node.excepts.excepts._else, ElseNode)
+    assert isinstance(node.excepts.excepts._else._then, list)
+    
+def test_try_but_node_2():
+    lexer = Lexer("try: {4} else: {5} then: {7}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, TryButNode)
+    assert isinstance(node._else, ElseNode)
+    assert isinstance(node._else._then, list)
+    
+def test_try_but_node_3():
+    lexer = Lexer("try: {4} but: {RuntimeError as e} {2} but: {Error} {} then: {7}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, TryButNode)
+    assert isinstance(node.excepts, ButNode)
+    assert isinstance(node.excepts.cond, CallNode)
+    assert node.excepts.cond.var.name.value == "RuntimeError"
+    assert isinstance(node.excepts.excepts, ButNode)
+    assert isinstance(node.excepts.excepts._then, list)
+    
+def test_error_203_inst_2():
+    lexer = Lexer("try: {4} but: {RuntimeError as e} {2} but: {Error as e} {} then: {7} else: {4}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 203
+    assert error.error_name == "EOFError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 69
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 72
+    assert error.details == 'Conjoined expression'
+    
+def test_error_204_inst_15():
+    lexer = Lexer("try: {4} but: {RuntimeError as e}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 33
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 33
+    assert error.details == 'Expected token: "{"'
+    
+def test_error_204_inst_14():
+    lexer = Lexer("try: {4} but: {RuntimeError as } {2}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert node is None
+    
+    assert error.error_code == 204
+    assert error.error_name == "ExpectedTokenError"
+    assert error.pos_start.line == 0
+    assert error.pos_start.column == 31
+    assert error.pos_end.line == 0
+    assert error.pos_end.column == 31
+    assert error.details == 'Expected token: IDENT'
+    
+def test_raise_node():
+    lexer = Lexer("raise: {4}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, RaiseNode)
+    assert node.key.value == "raise"
+    assert isinstance(node.node, NumberNode)
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 9
+    
+def test_check_node():
+    lexer = Lexer("check: {4}", "<test>")
+    tokens, error = lexer.lex()
+    
+    parser = Parser(tokens[0], "<test>", lexer)
+    node, error = parser.parse()
+    
+    assert error is None
+
+    assert isinstance(node, RaiseNode)
+    assert node.key.value == "check"
+    assert isinstance(node.node, NumberNode)
+    assert node.pos_start.line == 0
+    assert node.pos_start.column == 0
+    assert node.pos_end.line == 0
+    assert node.pos_end.column == 9

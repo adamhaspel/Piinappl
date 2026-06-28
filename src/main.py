@@ -46,7 +46,7 @@ TT_KEY = "KEY"
 TT_IDENT = "IDENT"
 
 # Keywords
-KEYS = ["var", "const", "unpack", "and", "or", "nor", "xor", 'step', "nand", "xnor", "not", "if", "elif", "else", "in", "func", "cfunc", "return", "for", "while", "loop", "break", "continue", "restart", 'class', 'cclass', 'attr', 'is']
+KEYS = ["var", "const", "unpack", "and", "or", "nor", "xor", 'step', "nand", "xnor", "not", "if", "elif", "else", "in", "func", "cfunc", "return", "for", "while", "loop", "break", "continue", "restart", 'class', 'cclass', 'attr', 'is', "try", 'but', 'then', 'as', 'raise', 'check']
 
 # Characters
 DIGITS = "0123456789"
@@ -72,48 +72,57 @@ class Position():
 ##########
 
 class Error():
-    def __init__(self, error_code, pos_start, pos_end, details, content):
+    def __init__(self, error_code, pos_start, pos_end, details, content, error_name=None):
         self.error_code = error_code
         if self.error_code == 101:
             self.error_name = "IllegalCharError"
-        if self.error_code == 102:
+        elif self.error_code == 102:
             self.error_name = "InvalidNumError"
-        if self.error_code == 103:
+        elif self.error_code == 103:
             self.error_name = "UnresolvedGroupErrorL"
-        if self.error_code == 201:
+        elif self.error_code == 201:
             self.error_name = "UnresolvedGroupErrorP"
-        if self.error_code == 202:
+        elif self.error_code == 202:
             self.error_name = "UnexpectedTokenError"
-        if self.error_code == 203:
+        elif self.error_code == 203:
             self.error_name = "EOFError"
-        if self.error_code == 204:
+        elif self.error_code == 204:
             self.error_name = "ExpectedTokenError"
-        if self.error_code == 301:
+        elif self.error_code == 301:
             self.error_name = "IncompatibleOpError"
-        if self.error_code == 302:
+        elif self.error_code == 302:
             self.error_name = "RuntimeError"
-        if self.error_code == 303:
+        elif self.error_code == 303:
             self.error_name = "NumberError"
-        if self.error_code == 304:
+        elif self.error_code == 304:
             self.error_name = "SymbolGetError"
-        if self.error_code == 305:
+        elif self.error_code == 305:
             self.error_name = "ConstantError"
-        if self.error_code == 306:
+        elif self.error_code == 306:
             self.error_name = "CallError"
-        if self.error_code == 307:
+        elif self.error_code == 307:
             self.error_name = "ReturnError"
-        if self.error_code == 308:
+        elif self.error_code == 308:
             self.error_name = "UnpackError"
-        if self.error_code == 309:
+        elif self.error_code == 309:
             self.error_name = "IndexError"
-        if self.error_code == 310:
+        elif self.error_code == 310:
             self.error_name = "LoopError"
-        if self.error_code == 311:
+        elif self.error_code == 311:
             self.error_name = "LoopKeyError"
-        if self.error_code == 312:
+        elif self.error_code == 312:
             self.error_name = "AttributeError"
-        if self.error_code == 313:
+        elif self.error_code == 313:
             self.error_name = "ClassError"
+        elif self.error_code == 314:
+            self.error_name = "TryButError"
+        elif self.error_code == 315:
+            self.error_name = "CheckError"
+        else:
+            if error_name:
+                self.error_name = error_name
+            else:
+                self.error_name = "NoName"
         self.pos_start = pos_start
         self.pos_end = pos_end
         self.details = details
@@ -121,11 +130,19 @@ class Error():
         self.source = self.pos_start.source
         
     def __repr__(self):
+        self.source = self.pos_start.source
         if self.source != "<file>":
             error = []
             result = ""
+            if isinstance(self.source, CallNode):
+                _index = self.source.func.name
+            else:
+                if self.source.pos_start.source == "<file>":
+                    _index = self.source.pos_start.source
+                else:
+                    _index = self.source.pos_start.source.func.name
             result += cs(f"Error {self.error_code} - {self.error_name}: {self.details}\n", "rgb(250,100,100)")
-            result += cs(f"   File {self.pos_start.index} in {self.source.func.name}, line {self.pos_start.line + 1}\n", "rgb(250, 150, 150)")
+            result += cs(f"   File {self.pos_start.index} in {_index}, line {self.pos_start.line + 1}\n", "rgb(250, 150, 150)")
             result += cs(f"      {self.content[self.pos_start.line]}\n", "rgb(250, 165, 165)")
             result += cs(f"      " + " " * (self.pos_start.column) + ("^" * (self.pos_end.column - self.pos_start.column + 1)), "rgb(250, 180, 180)")
             result += "\n"
@@ -191,6 +208,52 @@ class StringNode():
         
     def __repr__(self):
         return f"'{self.tok}'"
+    
+class ButNode():
+    def __init__(self, cond, _as, then, line, excepts, _else, _then, source, index):
+        self.cond = cond
+        self._as = _as
+        self.then = then
+        self.pos_end = Position(index, line, line, source)
+        self.excepts = excepts
+        self._else = _else
+        self._then = _then
+        self.source = source
+        
+    def __repr__(self):
+        if self.excepts:
+            return f"{self.then} -> but: {self.excepts}"
+        if self._else:
+            return f"{self.then} -> else: {self._else}"
+        if self._then:
+            return f"{self.then} -> then: {self._then}"
+    
+class ElseNode():
+    def __init__(self, then, line, _then, source, index):
+        self.then = then
+        self.pos_end = Position(index, line, line, source)
+        self._then = _then
+        self.source = source
+        
+    def __repr__(self):
+        return f'{self.then} -> then: {self._then}'
+        
+class TryButNode():
+    def __init__(self, then, line, source, excepts, _else, _then, index):
+        self.then = then
+        self.pos_end = Position(index, line, line, source)
+        self.source = source
+        self.excepts = excepts
+        self._else = _else
+        self._then = _then
+        
+    def __repr__(self):
+        if self.excepts:
+            return f"try: {self.then} -> but: {self.excepts}"
+        if self._else:
+            return f"try: {self.then} -> else: {self._else}"
+        if self._then:
+            return f"try: {self.then} -> then: {self._then}"
     
 class BinaryOpNode():
     def __init__(self, node1, op, node2):
@@ -286,6 +349,16 @@ class ReturnNode():
 
     def __repr__(self):
         return f'return {self.nodes}'
+    
+class RaiseNode():
+    def __init__(self, key, node, pos_end,index, source):
+        self.key = key
+        self.node = node
+        self.pos_start = Position(index, self.key.line, self.key.pos_start, source)
+        self.pos_end = Position(index, self.key.line, pos_end, source)
+
+    def __repr__(self):
+        return f'raise {self.node}'
 
 class UnaryOpNode():
     def __init__(self, op, node, index, source):
@@ -565,6 +638,7 @@ class ClassObject(Value):
 class ClassInstance(ClassObject):
     def __init__(self, name, _super, value, lexer, attrof=None):
         super().__init__(name, _super, value, lexer, attrof)
+        self.source = None
         self.id = random.randint(100000, 999999)
         if self.super: 
             self.value = _super.value + self.value
@@ -650,7 +724,7 @@ class Function(Value):
             return List(value, self.lexer), None
         lexer = Lexer(self.lexer.text, node.pos_start.index, node)
         tokens, error = lexer.lex()
-        symboltable = SymbolTable(_interpreter.symboltable)
+        symboltable = SymbolTable(self.lexer, _interpreter.symboltable)
         if self.attrof:
             node.args = [''] + node.args
         min_args = 0
@@ -680,7 +754,7 @@ class Function(Value):
             if error:
                 return None, error
             print(res)
-            return None, None
+            return NoneType(0), None
         kwarg = False
         for i in node.args:
             if isinstance(i, list):
@@ -1199,8 +1273,15 @@ class Number(Value):
 ###############
 
 class SymbolTable():
-    def __init__(self, parent=None):
+    def __init__(self, lexer, parent=None):
         _type = ClassObject("Type", None, None, None)
+        lexer = Lexer('''func: {_init(self, details="")} {
+            attr: {self.details = details}
+        }
+''', lexer.index, lexer.source)
+        tokens, error = lexer.lex()
+        parser = Parser(tokens[0], lexer.index, lexer, lexer.source)
+        node, error = parser.parse()
         self.symbols = {}
         self.constants = {
             "None": NoneType(None), 
@@ -1217,8 +1298,34 @@ class SymbolTable():
             "ClassObject": ClassObject("ClassObject", _type, None, None),
             "ClassInstance": ClassObject("ClassInstance", _type, None, None),
             "Function": ClassObject("Function", _type, None, None),
-            "Type": _type
+            "Type": _type,
         }
+        interpreter = Interpreter(node, lexer, lexer.index, self, lexer.source)
+        func, error = interpreter.visit(node)
+        error = ClassObject("Error", None, [func], None)
+        errors = [
+            ClassObject("IncompatibleOpError", error, [], None),
+            ClassObject("RuntimeError", error, [], None),
+            ClassObject("NumberError", error, [], None),
+            ClassObject("SymbolGetError", error, [], None),
+            ClassObject("ConstantError", error, [], None),
+            ClassObject("CallError", error, [], None),
+            ClassObject("ReturnError", error, [], None),
+            ClassObject("UnpackError", error, [], None),
+            ClassObject("IndexError", error, [], None),
+            ClassObject("LoopError", error, [], None),
+            ClassObject("LoopKeyError", error, [], None),
+            ClassObject("AttributeError", error, [], None),
+            ClassObject("ClassError", error, [], None),
+            ClassObject("TryButError", error, [], None),
+            ClassObject("CheckError", error, [], None)
+        ]
+        self.constants.update({"Error": error})
+        code = 300
+        for i in errors:
+            code += 1
+            i.coreattributes.update({"code":Number(code, lexer)})
+            self.constants.update({i.name:i})
         self.parent = parent
         
     def get(self, name):
@@ -1542,7 +1649,7 @@ class Parser():
         return node, None
     
     def expr(self):
-        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const", 'if', 'func', 'cfunc', 'return', "unpack", "loop", "while", "for", 'break', 'continue', 'restart', 'class', 'cclass', 'attr']:
+        if self.current_tok.type == "KEY" and self.current_tok.value in ["var", "const", 'if', 'func', 'cfunc', 'return', "unpack", "loop", "while", "for", 'break', 'continue', 'restart', 'class', 'cclass', 'attr', 'try', 'raise', 'check']:
             if self.current_tok.value in ["var", "const", 'attr']:
                 node, error = self.var(self.current_tok)
             if self.current_tok.value == "unpack":
@@ -1553,12 +1660,16 @@ class Parser():
                 node, error = self.funcexpr(self.current_tok)
             elif self.current_tok.value == "return":
                 node, error = self.returnexpr(self.current_tok)
+            elif self.current_tok.value in ['raise', 'check']:
+                node, error = self.raiseexpr(self.current_tok)
             elif self.current_tok.value in ["loop", "while"]:
                 node, error = self.loopexpr(self.current_tok)
             elif self.current_tok.value in ["class", "cclass"]:
                 node, error = self.classexpr(self.current_tok)
             elif self.current_tok.value == "for":
                 node, error = self.forexpr(self.current_tok)
+            elif self.current_tok.value == "try":
+                node, error = self.tryexpr(self.current_tok.line)
             elif self.current_tok.value in ["break", 'continue', 'restart']:
                 tok = self.current_tok
                 self.advance()
@@ -1722,6 +1833,226 @@ class Parser():
                 self.current_tok = tokifnoelses
         return IfNode(cond, then, line, self.source, elifs, _else), None
     
+    def tryexpr(self, line):
+        excepts = None
+        _else = None
+        _then = None
+        tokens, error = Lexer(self.lexer.text, self.index).lex()
+        if error:
+            return None, error
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: ":"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        if self.current_tok.type == "RBRACE":
+            finished = True
+            self.advance()
+        elif self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line
+        lineifnoelses = line
+        tokifnoelses = self.current_tok
+        try:
+            line += 1
+            while self.current_tok.type == "EOF":
+                self.tokens = tokens[line]
+                self.current_tok = self.tokens[0]
+                line += 1
+        except IndexError:
+            line = lineifnoelses
+        except Exception as e:
+            raise e
+        finally:
+            if finished == False:
+                return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+            elses = False
+            if self.current_tok.type == "KEY" and self.current_tok.value == "but":
+                elses = True
+                excepts, error = self.butexpr(line)
+                if error:
+                    return None, error
+                line = excepts.pos_end.line
+            elif self.current_tok.type == "KEY" and self.current_tok.value == "else":
+                elses = True
+                _else, error = self.butelseexpr(line)
+                if error:
+                    return None, error
+                line = _else.pos_end.line
+            elif self.current_tok.type == "KEY" and self.current_tok.value == "then":
+                elses = True
+                _then, error, line = self.elseexpr(tokens, line)
+                if error:
+                    return None, error
+            if not elses:
+                line = lineifnoelses
+                self.tokens = tokens[line]
+                self.current_tok = tokifnoelses
+        return TryButNode(then, line, self.source, excepts, _else, _then, self.index), None
+    
+    def butexpr(self, line):
+        _then = None
+        _else = None
+        excepts = None
+        tokens, error = Lexer(self.lexer.text, self.index).lex()
+        if error:
+            return None, error
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: ":"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        self.advance()
+        cond, error = self.andor()
+        if error:
+            return None, error
+        cond = CallNode(cond, [], cond.pos_end.column, self.index, self.source)
+        _as = None
+        if self.current_tok.type == "KEY" and self.current_tok.value == "as":
+            eq = self.current_tok
+            self.advance()
+            if self.current_tok.type != "IDENT":
+                return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: IDENT', self.lexer.text.split("\n"))
+            _as = VarDefNode(Token("KEY", "var", None, None), self.current_tok, eq, cond, Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), self.index, self.source)
+            self.advance()
+        if self.current_tok.type != "RBRACE":
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        if self.current_tok.type == "RBRACE":
+            finished = True
+            self.advance()
+        elif self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line
+        lineifnoelses = line
+        tokifnoelses = self.current_tok
+        try:
+            line += 1
+            while self.current_tok.type == "EOF":
+                self.tokens = tokens[line]
+                self.current_tok = self.tokens[0]
+                line += 1
+        except IndexError:
+            line = lineifnoelses
+        except Exception as e:
+            raise e
+        finally:
+            if finished == False:
+                return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+            if self.current_tok.type == "KEY" and self.current_tok.value == "but":
+                excepts, error = self.butexpr(line)
+                if error:
+                    return None, error
+                line = excepts.pos_end.line
+            elif self.current_tok.type == "KEY" and self.current_tok.value == "else":
+                _else, error = self.butelseexpr(line)
+                if error:
+                    return None, error
+            elif self.current_tok.type == "KEY" and self.current_tok.value == "then":
+                _then, error, line = self.elseexpr(tokens, line)
+                if error:
+                    return None, error
+            else:
+                line = lineifnoelses
+                self.tokens = tokens[line]
+                self.current_tok = tokifnoelses
+        return ButNode(cond, _as, then, line, excepts, _else, _then, self.source, self.index), None
+    
+    def butelseexpr(self, line):
+        _then = None
+        tokens, error = Lexer(self.lexer.text, self.index).lex()
+        if error:
+            return None, error
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), f'Expected token: ":"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        linepos = self.current_tok.line
+        self.advance()
+        then = []
+        finished = False
+        if self.current_tok.type == "RBRACE":
+            finished = True
+            self.advance()
+        elif self.current_tok.type != "EOF":
+            node, error = self.expr()
+            if error:
+                return None, error
+            then.append(node)
+            if self.current_tok.type == "RBRACE":
+                finished = True
+                self.advance()
+        line = self.current_tok.line - 1
+        if finished == False:
+            line += 1
+        tokens, line, then, finished = self.multiline(tokens, line, then, linepos, pos_start, finished)
+        if not tokens:
+            return None, line
+        lineifnoelses = line
+        tokifnoelses = self.current_tok
+        try:
+            line += 1
+            while self.current_tok.type == "EOF":
+                self.tokens = tokens[line]
+                self.current_tok = self.tokens[0]
+                line += 1
+        except IndexError:
+            line = lineifnoelses
+        except Exception as e:
+            raise e
+        finally:
+            if finished == False:
+                return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+            if self.current_tok.type == "KEY" and self.current_tok.value == "then":
+                _then, error, line = self.elseexpr(tokens, line)
+                if error:
+                    return None, error
+            else:
+                line = lineifnoelses
+                self.tokens = tokens[line]
+                self.current_tok = tokifnoelses
+        return ElseNode(then, line, _then, self.source, self.index), None
+    
     def returnexpr(self, tok):
         self.advance()
         if self.current_tok.type != "COLON":
@@ -1747,6 +2078,24 @@ class Parser():
                 break
             self.advance()
         return ReturnNode(tok, nodes, rsquare.pos_end, self.index, self.source), None
+    
+    def raiseexpr(self, tok):
+        self.advance()
+        if self.current_tok.type != "COLON":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: ":"', self.lexer.text.split("\n"))
+        self.advance()
+        if self.current_tok.type != "LBRACE":
+            return None, Error(204, Position(self.index, self.current_tok.line, self.current_tok.pos_start, self.source), Position(self.index, self.current_tok.line, self.current_tok.pos_end, self.source), 'Expected token: "{"', self.lexer.text.split("\n"))
+        pos_start = self.current_tok.pos_start
+        self.advance()
+        node, error = self.andor()
+        if error:
+            return None, error
+        if self.current_tok.type != "RBRACE":
+            return None, Error(201, Position(self.index, self.current_tok.line, pos_start, self.source), Position(self.index, self.current_tok.line, pos_start, self.source), 'Unresolved grouping: "{"', self.lexer.text.split("\n"))
+        rsquare = self.current_tok
+        self.advance()
+        return RaiseNode(tok, node, rsquare.pos_end, self.index, self.source), None
     
     def funcexpr(self, tok):
         tokens, error = Lexer(self.lexer.text, self.index).lex()
@@ -2429,6 +2778,134 @@ class Interpreter():
     def visit_StringNode(self, node):
         return String(node.tok.value, self.lexer), None
     
+    def visit_TryButNode(self, node):
+        for i in node.then:
+            res, error = self.visit(i)
+            if error:
+                problem = i
+                break
+        if not error:
+            buterror = None
+            if node._else:
+                for i in node._else.then:
+                    res, error = self.visit(i)
+                    if error:
+                        break
+            if node.excepts:
+                if node.excepts._else:
+                    for i in node.excepts._else.then:
+                        res, error = self.visit(i)
+                        if error:
+                            break
+            if error:
+                return None, error
+        else:
+            buterror = error
+            if node.excepts:
+                but = node
+                while but.excepts:
+                    if but.excepts:
+                        but = but.excepts
+                    if but.cond:
+                        cond, error = self.visit(but.cond)
+                        if error:
+                            if error.error_code != 306:
+                                return None, error
+                        if not isinstance(cond, ClassInstance):
+                            return None, Error(314, but.cond.pos_start, but.cond.pos_end, f"But exception must be Error object", self.lexer.text.split("\n"))
+                        if cond.super:
+                            if cond.super.name != "Error" and cond.super.attrof != None:
+                                return None, Error(314, but.cond.pos_start, but.cond.pos_end, f"But exception must be Error object", self.lexer.text.split("\n"))
+                        else:
+                            if cond.attrof != None and cond.name != "Error":
+                                return None, Error(314, but.cond.pos_start, but.cond.pos_end, f"But exception must be Error object", self.lexer.text.split("\n"))
+                        if cond.name == buterror.error_name or cond.name == "Error":
+                            if but._as:
+                                if cond.name == "Error":
+                                    but._as.value.var.name.value = buterror.error_name
+                                res, error = self.visit(but._as)
+                                if error:
+                                    return None, error
+                                cond = self.symboltable.get(but._as.name)
+                                cond.attributes.update({'details':String(buterror.details, self.lexer)})
+                                cond.source = problem
+                                problem.pos_start.source = but.cond.pos_start.source
+                            for i in but.then:
+                                res, error = self.visit(i)
+                                if error:
+                                    return None, error
+                    else:
+                        for i in but.then:
+                            res, error = self.visit(i)
+                            if error:
+                                return None, error
+        _then = None
+        if node._then:
+            _then = node._then
+        if node.excepts:
+            if buterror:
+                if but._then:
+                    _then = but._then
+                if but._else:
+                    if but._else._then:
+                        _then = but._else._then
+            else:
+                but = node.excepts
+                while but.excepts:
+                    but = but.excepts
+                if but._then:
+                    _then = but._then
+                if but._else:
+                    if but._else._then:
+                        _then = but._else._then
+        if node._else:
+            if node._else._then:
+                _then = node._else._then
+        if _then:
+            for i in _then:
+                res, error = self.visit(i)
+                if error:
+                    return None, None
+        return None, None
+    
+    def visit_RaiseNode(self, node):
+        value, error = self.visit(node.node)
+        if error:
+            return None, error
+        if node.key.value == 'raise':
+            if isinstance(value, ClassInstance):
+                if value.attrof == None and value.name == "Error":
+                    if value.source:
+                        node.pos_start.source = value.source
+                    return None, Error("raised", node.pos_start, node.pos_end, value.attributes["details"].value, self.lexer.text.split("\n"))
+                if value.super:
+                    if value.super.attrof == None and value.super.name == "Error":
+                        if value.source:
+                            node.pos_start.source = value.source
+                        return None, Error("raised", node.pos_start, node.pos_end, value.attributes["details"].value, self.lexer.text.split("\n"), value.name)
+            return None, Error("raised", node.pos_start, node.pos_end, str(value), self.lexer.text.split("\n"))
+        if not value.bool:
+            check = ""
+            if isinstance(node.node, BinaryOpNode):
+                if (node.node.op.type in ["EQEQ", "NEQ", "LT", "LTE", "GT", "GTE"]) or (node.node.op.type == "KEY" and node.node.op.value in ["in", "is"]):
+                    l, error = self.visit(node.node.node1)
+                    op = self.lexer.text.split("\n")[node.node.pos_start.line][node.node.op.pos_start]
+                    if node.node.op.type not in ["LTE", "GT"]:
+                        op += self.lexer.text.split("\n")[node.node.pos_start.line][node.node.op.pos_end]
+                    r, error = self.visit(node.node.node2)
+                    check = f"{l} {op} {r}"
+                elif node.node.op.type == "KEY":
+                    l, error = self.visit(node.node.node1)
+                    op = node.node.op.value
+                    r, error = self.visit(node.node.node2)
+                    check = f"{l} {op} {r}"
+                else:
+                    check = "False"
+            else:
+                check = "False"
+            return None, Error(315, node.node.pos_start, node.node.pos_end, f"Check {check}", self.lexer.text.split("\n"))
+        return Boolean(1, self.lexer), None
+    
     def visit_VarDefNode(self, node):
         value, error = self.visit(node.value)
         if error:
@@ -2436,7 +2913,7 @@ class Interpreter():
         if node.key.value == "var":
             if node.name.value in self.symboltable.constants:
                 return None, Error(305, Position(self.index, node.name.line, node.name.pos_start, self.lexer.source), Position(self.index, node.name.line, node.name.pos_end, self.lexer.source), f'Constant "{node.name.value}" already defined', self.lexer.text.split("\n"))
-            if node.eqtype.type == "EQ":
+            if node.eqtype.type in ["EQ", "KEY"]:
                 self.symboltable.set(node.name.value, value)
             else:
                 existing = self.symboltable.get(node.name)
@@ -2477,6 +2954,9 @@ class Interpreter():
                 return None, Error(312, node.name.node2.pos_start,node.name.node2.pos_end, "Attribute must be identifier", self.lexer.text.split("\n"))
             if not isinstance(parent, ClassInstance):
                 return None, Error(312, node.name.node1.pos_start,node.name.node1.pos_end, f"Cannot edit attributes of type {parent.__class__.__name__}", self.lexer.text.split("\n"))
+            if node.name.node2.name.value in parent.coreattributes:
+                return None, Error(312, node.name.node1.pos_start,node.name.node1.pos_end, f"Cannot edit core attributes", self.lexer.text.split("\n"))
+                
             
             if node.eqtype.type == "EQ":
                 parent.attributes.update({node.name.node2.name.value:value})
@@ -2719,6 +3199,10 @@ class Interpreter():
     def visit_IfNode(self, node):
         cond, error = self.visit(node.cond)
         if error:
+            if error.error_code == 312 and "does not have attribute" in error.details and isinstance(node.cond, BinaryOpNode) and error.pos_end.column == node.cond.pos_end.column:
+                if node.cond.op.type == "DOT":
+                    cond = None
+                    error = None
             return cond, error
         
         if cond.bool:
